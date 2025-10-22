@@ -16,6 +16,11 @@ builder.Services.AddLogging();
 
 // Services
 builder.Services.AddScoped<IJobApplicationService, JobApplicationService>();
+builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Database
+builder.Services.AddDbContext<JobDbContext>(options => options.UseSqlite("Data Source=appliedJobs.db"));
 
 //Controllers
 builder.Services.AddControllers();
