@@ -14,3 +14,6 @@ project.fragment.lock.json
 # NuGet Packages
 *.nupkg
 **/packages/*
+
+# Application settings (contains sensitive information)
+Jobs.EasyApply/appsettings.json
