@@ -79,9 +79,9 @@ The project follows a clean architecture pattern with multiple .NET projects org
 │   │   ├── IJobApplicationService.cs # Service interface
 │   │   └── JobApplicationService.cs # Service implementation
 │   └── Jobs.EasyApply.Infrastructure.csproj # Project file
-├── 📁 Readme/                      # Documentation files
-│   ├── README.md                   # This documentation file
-│   └── ROADMAP.md                  # Project roadmap
+├── README.md                       # This documentation file
+├── ROADMAP.md                      # Project roadmap
+├── swagger-screenshot.png         # API screenshot
 ├── .gitignore                      # Git ignore rules
 └── Jobs.EasyApply.sln              # Visual Studio solution file
 ```
