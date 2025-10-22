@@ -1,0 +1,16 @@
+# Binaries for programs and libraries
+*.dll
+*.exe
+*.pdb
+
+# Output of `dotnet build`
+**/bin/
+**/obj/
+
+# Project files
+project.lock.json
+project.fragment.lock.json
+
+# NuGet Packages
+*.nupkg
+**/packages/*

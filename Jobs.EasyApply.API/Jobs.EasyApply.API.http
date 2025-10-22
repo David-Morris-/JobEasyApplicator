@@ -1,0 +1,6 @@
+@Jobs.EasyApply.API_HostAddress = http://localhost:5070
+
+GET {{Jobs.EasyApply.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
