@@ -31,31 +31,104 @@ The Swagger UI provides an interactive interface for testing the API endpoints. 
 
 ## 🏗️ Architecture & Structure
 
+The project follows a clean architecture pattern with multiple .NET projects organized into logical layers. This structure promotes separation of concerns, maintainability, and scalability.
+
 ```
-📁 LinkedIn.Jobs.EasyApply/
-├── 📁 Models/                  # Data models and configuration classes
-│   ├── AppliedJob.cs          # Database entity for tracking applications
-│   ├── JobListing.cs          # Model representing job listings
-│   ├── Credentials.cs         # LinkedIn authentication credentials
-│   ├── JobSearchParams.cs     # Job search parameters configuration
-│   └── AppSettings.cs         # Main application settings container
-├── 📁 Services/               # Business logic layer
-│   ├── JobScraper.cs          # Handles job searching and web scraping
-│   └── JobApplicator.cs       # Handles job application process
-├── 📁 Utilities/              # Utility and helper classes
-│   └── HtmlScraper.cs         # HTML element finding and interaction utilities
-├── 📄 appsettings.json        # Configuration file with credentials and defaults
-├── JobDbContext.cs            # Entity Framework database context
-├── Program.cs                 # Application entry point
-└── README.md                  # This documentation file
+📁 JobEasyApplicator/
+├── 📁 Jobs.EasyApply/              # Main console application for job automation
+│   ├── 📁 Services/                # Core business logic services
+│   │   ├── JobApplicator.cs        # Handles the job application process
+│   │   └── JobScraper.cs           # Manages job searching and scraping
+│   ├── 📁 Utilities/               # Utility classes for web interactions
+│   │   └── HtmlScraper.cs          # HTML parsing and element interaction utilities
+│   ├── Program.cs                  # Application entry point
+│   └── Jobs.EasyApply.csproj       # Project file
+├── 📁 Jobs.EasyApply.API/          # REST API for retrieving application data
+│   ├── 📁 Controllers/             # API controllers
+│   │   └── JobsController.cs       # Endpoints for jobs and statistics
+│   ├── 📁 DTOs/                    # Data Transfer Objects
+│   │   └── JobDTO.cs               # DTO for job data
+│   ├── 📁 Middleware/              # Custom middleware (if any)
+│   ├── 📁 Properties/              # Project properties and launch settings
+│   ├── appsettings.json            # API configuration
+│   ├── Program.cs                  # API entry point
+│   └── Jobs.EasyApply.API.csproj   # Project file
+├── 📁 Jobs.EasyApply.Common/       # Shared models and configurations
+│   ├── 📁 Models/                  # Common data models
+│   │   ├── AppliedJob.cs           # Entity for tracking applied jobs
+│   │   ├── JobListing.cs           # Model for job listings
+│   │   ├── AppSettings.cs          # Application settings
+│   │   └── ApplicationStats.cs     # Statistics model
+│   └── Jobs.EasyApply.Common.csproj # Project file
+├── 📁 Jobs.EasyApply.Infrastructure/ # Data access and infrastructure services
+│   ├── 📁 Data/                    # Database context and files
+│   │   ├── JobDbContext.cs         # Entity Framework database context
+│   │   └── appliedJobs.db          # SQLite database file
+│   ├── 📁 Repositories/            # Repository pattern implementations
+│   │   ├── IJobApplicationRepository.cs # Repository interface
+│   │   ├── JobApplicationRepository.cs # Repository implementation
+│   │   ├── IRepository.cs          # Base repository interface
+│   │   ├── Repository.cs           # Base repository implementation
+│   │   ├── IUnitOfWork.cs          # Unit of work interface
+│   │   ├── UnitOfWork.cs           # Unit of work implementation
+│   │   └── Specifications/         # Query specifications
+│   │       ├── BaseSpecification.cs
+│   │       ├── ISpecification.cs
+│   │       └── JobApplicationSpecifications.cs
+│   ├── 📁 Services/                # Infrastructure services
+│   │   ├── IJobApplicationService.cs # Service interface
+│   │   └── JobApplicationService.cs # Service implementation
+│   └── Jobs.EasyApply.Infrastructure.csproj # Project file
+├── 📁 Readme/                      # Documentation files
+│   ├── README.md                   # This documentation file
+│   └── ROADMAP.md                  # Project roadmap
+├── .gitignore                      # Git ignore rules
+└── Jobs.EasyApply.sln              # Visual Studio solution file
 ```
 
 ### Architecture Principles
 
-- **Separation of Concerns**: Each folder has a distinct responsibility
-- **Dependency Injection**: Services are loosely coupled and testable
-- **Configuration Externalization**: All settings loaded from JSON configuration
-- **SOLID Principles**: Code follows Single Responsibility and Open/Closed principles
+- **Layered Architecture**: Organized into distinct layers (Presentation, Business Logic, Data Access) for better separation of concerns
+- **Dependency Injection**: Services are loosely coupled and easily testable using .NET's built-in DI container
+- **Repository Pattern**: Abstracts data access logic for better maintainability
+- **SOLID Principles**: Code adheres to Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion principles
+- **Clean Code**: Emphasis on readability, modularity, and adherence to .NET best practices
+
+## 📐 Design Patterns
+
+The application implements several key design patterns to ensure maintainability, scalability, and adherence to best practices:
+
+### Repository Pattern
+- **Purpose**: Abstracts data access logic and provides a uniform interface for accessing data from different sources.
+- **Implementation**: Located in `Jobs.EasyApply.Infrastructure/Repositories/`, with interfaces like `IJobApplicationRepository` and implementations like `JobApplicationRepository`.
+- **Benefits**: Decouples business logic from data storage, making it easier to test and switch databases.
+
+### Unit of Work Pattern
+- **Purpose**: Maintains a list of objects affected by a business transaction and coordinates the writing out of changes.
+- **Implementation**: `IUnitOfWork` and `UnitOfWork` classes in the Repositories folder, used to manage database transactions and ensure data consistency.
+- **Benefits**: Ensures atomic operations and improves performance by batching database calls.
+
+### Specification Pattern
+- **Purpose**: Encapsulates query logic in reusable specifications for filtering and querying data.
+- **Implementation**: `BaseSpecification`, `ISpecification`, and `JobApplicationSpecifications` in `Jobs.EasyApply.Infrastructure/Repositories/Specifications/`.
+- **Benefits**: Keeps query logic separate from business logic, making queries more composable and testable.
+
+### Dependency Injection (DI) Pattern
+- **Purpose**: Manages object creation and lifetime, promoting loose coupling between classes.
+- **Implementation**: Used throughout the application via .NET's built-in DI container, with services registered in `Program.cs` files.
+- **Benefits**: Improves testability, maintainability, and allows for easy swapping of implementations.
+
+### Clean Architecture Pattern
+- **Purpose**: Organizes code into layers with clear dependencies, ensuring the core business logic is independent of external concerns.
+- **Implementation**: Structured into Common (entities), Infrastructure (data access), API (presentation), and main application layers.
+- **Benefits**: Makes the application easier to maintain, test, and evolve over time.
+
+### Additional Patterns
+- **Factory Pattern**: Used implicitly in service creation and configuration binding for creating objects without specifying exact classes.
+- **Observer Pattern**: Applied in logging (e.g., Serilog sinks) to monitor and react to application events.
+- **Strategy Pattern**: Potentially used in job application strategies, allowing different approaches for various job types or platforms.
+
+These patterns work together to create a robust, flexible, and maintainable codebase that follows industry best practices.
 
 ## 🛠️ Technologies Used
 
