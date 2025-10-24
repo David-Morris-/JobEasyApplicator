@@ -316,62 +316,44 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                 }
 
                 // For other forms, use the comprehensive detection
-                // Look for empty required fields with various selectors
+                // Look for empty required fields with various selectors (organized to avoid duplication)
                 var emptyFieldSelectors = new[]
                 {
-                    // Basic empty required fields
-                    "input[required]:not([value]):not([checked])",
+                    // Most specific selectors first (highest priority)
+                    "input[data-test-form-element='input'][required]:empty",
+                    "input[data-test-form-element='email'][required]:empty",
+                    "input[data-test-form-element='tel'][required]:empty",
+                    "textarea[data-test-form-element='textarea'][required]:empty",
+
+                    // Type-specific selectors
                     "input[type='text'][required]:empty",
+                    "input[type='email'][required]:empty",
+                    "input[type='tel'][required]:empty",
+                    "input[type='radio'][required]:not(:checked)",
+                    "input[type='checkbox'][required]:not(:checked)",
                     "textarea[required]:empty",
                     "select[required] option[selected][value='']",
 
-                    // Radio buttons and checkboxes
-                    "input[type='radio'][required]:not(:checked)",
-                    "input[type='checkbox'][required]:not(:checked)",
-
-                    // More specific selectors for LinkedIn forms
-                    "input[required][value='']",
-                    "textarea[required][value='']",
-                    "input[required]:empty",
-                    "textarea[required]:empty",
-
-                    // Required fields with placeholders but no actual values
-                    "input[required][placeholder]:not([value])",
-                    "textarea[required][placeholder]:empty",
-
-                    // Required fields that are visible but empty
-                    "input[required][style*='display']:empty",
-                    "textarea[required][style*='display']:empty",
-
-                    // Required fields with aria-required attribute
+                    // Attribute-specific selectors
                     "input[aria-required='true']:empty",
                     "textarea[aria-required='true']:empty",
-                    "select[aria-required='true'] option[selected][value='']",
-
-                    // Required fields with data-required attribute
                     "input[data-required='true']:empty",
                     "textarea[data-required='true']:empty",
 
-                    // Required fields with specific LinkedIn classes
+                    // Class-specific selectors
                     "input[class*='required']:empty",
                     "textarea[class*='required']:empty",
 
-                    // LinkedIn specific selectors for contact forms
-                    "input[data-test-form-element='input'][required]:empty",
-                    "input[data-test-form-element='input'][required]:not([value])",
-                    "input[data-test-form-element='email'][required]:empty",
-                    "input[data-test-form-element='email'][required]:not([value])",
-                    "input[data-test-form-element='tel'][required]:empty",
-                    "input[data-test-form-element='tel'][required]:not([value])",
-
-                    // Select dropdowns that are required but have no valid selection
-                    "select[required]:not([value])",
-                    "select[required] option[selected][value='']",
-                    "select[required] option[selected][value='0']",
-                    "select[required] option[selected][value='-1']"
+                    // General fallback selectors (lowest priority)
+                    "input[required]:empty",
+                    "textarea[required]:empty",
+                    "select[required]:not([value])"
                 };
 
-                var foundEmptyFields = new List<string>();
+                // Use a set to track unique elements and avoid duplication
+                var foundEmptyElements = new HashSet<string>();
+                var foundEmptySelectors = new List<string>();
+
                 foreach (var selector in emptyFieldSelectors)
                 {
                     try
@@ -379,10 +361,14 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                         var elements = _driver.FindElements(By.CssSelector(selector));
                         foreach (var element in elements.Where(e => e.Displayed))
                         {
-                            if (IsFieldActuallyEmpty(element))
+                            // Create a unique identifier for this element
+                            string elementId = $"{element.TagName}_{element.GetAttribute("type")}_{element.GetAttribute("name")}_{element.GetAttribute("id")}_{element.GetAttribute("class")}";
+
+                            if (IsFieldActuallyEmpty(element) && !foundEmptyElements.Contains(elementId))
                             {
-                                foundEmptyFields.Add(selector);
-                                Console.WriteLine($"Found empty field with selector: {selector}, tag: {element.TagName}, type: {element.GetAttribute("type")}");
+                                foundEmptyElements.Add(elementId);
+                                foundEmptySelectors.Add(selector);
+                                Console.WriteLine($"Found empty field with selector: {selector}, tag: {element.TagName}, type: {element.GetAttribute("type")}, name: {element.GetAttribute("name")}, id: {element.GetAttribute("id")}");
                             }
                         }
                     }
@@ -393,9 +379,9 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     }
                 }
 
-                if (foundEmptyFields.Any())
+                if (foundEmptyElements.Any())
                 {
-                    Console.WriteLine($"Found {foundEmptyFields.Count} empty required fields: {string.Join(", ", foundEmptyFields)}");
+                    Console.WriteLine($"Found {foundEmptyElements.Count} unique empty required fields: {string.Join(", ", foundEmptySelectors.Distinct())}");
                     return true;
                 }
 

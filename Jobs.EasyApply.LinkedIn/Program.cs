@@ -38,6 +38,15 @@ namespace Jobs.EasyApply.LinkedIn
             using var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri("http://localhost:5070"); // Default API URL
 
+            // Test API connectivity before proceeding
+            Log.Information("Testing API connectivity...");
+            if (!await TestApiConnectionAsync(httpClient))
+            {
+                Log.Error("Failed to connect to API. Please ensure the API is running on http://localhost:5070");
+                return;
+            }
+            Log.Information("API connectivity confirmed. Proceeding with job search...");
+
             using var scraper = new JobScraper(jobTitle, location, appSettings.Credentials.Email, appSettings.Credentials.Password);
 
             try
@@ -83,6 +92,42 @@ namespace Jobs.EasyApply.LinkedIn
             }
 
             Log.Information("Job application process completed.");
+        }
+
+        private static async Task<bool> TestApiConnectionAsync(HttpClient httpClient)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync("api/jobs/test-connection");
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonString = await response.Content.ReadAsStringAsync();
+                    Log.Information("API connection test response: {Response}", jsonString);
+
+                    // Simple string-based check for success (case-insensitive)
+                    if (jsonString.Contains("\"success\":true") || jsonString.Contains("'success':true") ||
+                        jsonString.Contains("\"Success\":true") || jsonString.Contains("'Success':true"))
+                    {
+                        Log.Information("API connection test successful");
+                        return true;
+                    }
+                    else
+                    {
+                        Log.Warning("API connection test failed - response indicates failure");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Log.Warning("API connection test failed with status: {StatusCode}", response.StatusCode);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error testing API connection");
+                return false;
+            }
         }
 
         private static async Task<bool> IsJobPreviouslyAppliedAsync(HttpClient httpClient, string jobId)

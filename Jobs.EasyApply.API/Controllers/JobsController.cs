@@ -233,5 +233,20 @@ namespace Jobs.EasyApply.API.Controllers
                 return StatusCode(500, new { Success = false, Message = "Internal server error", Error = ex.Message });
             }
         }
+
+        [HttpGet("test-connection")]
+        public async Task<IActionResult> TestConnection()
+        {
+            try
+            {
+                // Test database connectivity by attempting to retrieve applied jobs count
+                var count = await _service.GetAppliedJobsCountAsync();
+                return Ok(new { Success = true, Message = "Database connection successful", Count = count });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { Success = false, Message = "Database connection failed", Error = ex.Message });
+            }
+        }
     }
 }
