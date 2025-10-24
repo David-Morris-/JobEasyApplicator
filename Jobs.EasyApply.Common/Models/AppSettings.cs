@@ -16,5 +16,10 @@ namespace Jobs.EasyApply.Common.Models
     {
         public string Title { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
+        public string ExperienceLevel { get; set; } = string.Empty;
+        public string JobType { get; set; } = string.Empty;
+        public string DatePosted { get; set; } = string.Empty;
+        public bool EasyApplyOnly { get; set; } = true;
+        public int MaxJobsToApply { get; set; } = 50;
     }
 }

@@ -2,10 +2,11 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using Serilog;
 using System.Threading;
+using System.Linq;
 using Jobs.EasyApply.Common.Models;
-using Jobs.EasyApply.Utilities;
+using Jobs.EasyApply.LinkedIn.Utilities;
 
-namespace Jobs.EasyApply.Services
+namespace Jobs.EasyApply.LinkedIn.Services
 {
     public class JobApplicator : IDisposable
     {
@@ -41,7 +42,7 @@ namespace Jobs.EasyApply.Services
                 }
                 else
                 {
-                    Log.Warning("No job card found for job: {Title} at {Company}", job.Title, job.Company);
+                    Log.Warning("No job card found for job: " + job.Title + " at " + job.Company);
                     return false;
                 }
 
@@ -60,49 +61,18 @@ namespace Jobs.EasyApply.Services
                 }
 
                 // Handle apply form - contact info
-                var nextButton = _htmlScraper.FindNextButton();
-                if (nextButton != null)
-                {
-                    Log.Information("Found ContactInfo Next button, clicking it");
-                    nextButton.Click();
-                    Thread.Sleep(2000); // Wait for next page to load
-                }
-                else
-                {
-                    Log.Information("No ContactInfo Next button found, continuing to submit");
-                }
-
-                // Handle apply form - resume selection
-                nextButton = _htmlScraper.FindNextButton();
-                if (nextButton != null)
-                {
-                    Log.Information("Found ResumeSelectionNext button, clicking it");
-                    nextButton.Click();
-                    Thread.Sleep(2000); // Wait for next page to load
-                }
-                else
-                {
-                    Log.Information("No Resume Selection Next button found, continuing to submit");
-                }
-
-                // Handle apply form - Review screen and optional mark job as a top selection
-                nextButton = _htmlScraper.FindReviewNextButton();
-                if (nextButton != null)
+                var nextReviewButton = _htmlScraper.FindReviewNextButton();
+                while (nextReviewButton != null)
                 {
                     // Check for additional questions section before proceeding
                     if (_htmlScraper.HasAdditionalQuestionsModule())
                     {
-                        // Smart detection: Check if questions are pre-populated
-                        if (_htmlScraper.AreAdditionalQuestionsPrePopulated())
-                        {
-                            Log.Information("Additional questions detected but appear to be pre-populated for job: {Title} at {Company}. Continuing automatically.", job.Title, job.Company);
-                        }
-                        else if (_htmlScraper.HasEmptyRequiredFields())
+                        // Smart detection: Check if questions are not pre-populated
+                        if (_htmlScraper.HasEmptyRequiredFields())
                         {
                             Log.Warning("Additional questions module detected with empty required fields for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
                             Console.WriteLine($"*** MANUAL INTERVENTION REQUIRED ***");
                             Console.WriteLine($"Additional questions detected for: {job.Title} at {job.Company}");
-                            Console.WriteLine($"Some questions appear to be empty and require input.");
                             Console.WriteLine($"Please fill out the questions in the browser and click Next to continue...");
                             Console.WriteLine($"Press Enter in this console when you have completed the questions and clicked Next.");
 
@@ -120,57 +90,13 @@ namespace Jobs.EasyApply.Services
                     {
                         Log.Information("No additional questions detected, proceeding with application");
                     }
+                    nextReviewButton.Click();
+                    Thread.Sleep(2000); // Wait for next page to load
 
-                    nextButton.Click();
+                    // Look for the next Next button
+                    nextReviewButton = _htmlScraper.FindReviewNextButton();
                 }
-                else
-                {
-                    Log.Information("No Review or Next button found, this should never occur.");
-                    return false;
-                }
-
-                // Handle apply form - Additional Questions screen or Review screen
-                nextButton = _htmlScraper.FindReviewNextButton();
-                if (nextButton != null)
-                {
-                    // Check for additional questions section before proceeding
-                    if (_htmlScraper.HasAdditionalQuestionsModule())
-                    {
-                        // Smart detection: Check if questions are pre-populated
-                        if (_htmlScraper.AreAdditionalQuestionsPrePopulated())
-                        {
-                            Log.Information("Additional questions detected but appear to be pre-populated for job: {Title} at {Company}. Continuing automatically.", job.Title, job.Company);
-                        }
-                        else if (_htmlScraper.HasEmptyRequiredFields())
-                        {
-                            Log.Warning("Additional questions module detected with empty required fields for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
-                            Console.WriteLine($"*** MANUAL INTERVENTION REQUIRED ***");
-                            Console.WriteLine($"Additional questions detected for: {job.Title} at {job.Company}");
-                            Console.WriteLine($"Some questions appear to be empty and require input.");
-                            Console.WriteLine($"Please fill out the questions in the browser and click Next to continue...");
-                            Console.WriteLine($"Press Enter in this console when you have completed the questions and clicked Next.");
-
-                            // Wait for user to complete the questions and press Enter
-                            Console.ReadLine();
-
-                            Log.Information("User has completed additional questions, continuing with application process");
-                        }
-                        else
-                        {
-                            Log.Information("Additional questions detected but no empty required fields found for job: {Title} at {Company}. Continuing automatically.", job.Title, job.Company);
-                        }
-                    }
-                    else
-                    {
-                        Log.Information("No additional questions detected, proceeding with application");
-                    }
-
-                    nextButton.Click();
-                }
-                else
-                {
-                    Log.Information("No Review Next button found, check for submit.");
-                }
+                Log.Information("No more Next buttons found, continuing to submit");
 
                 // Final submit
                 var submitButton = _htmlScraper.FindSubmitButton();
@@ -198,12 +124,71 @@ namespace Jobs.EasyApply.Services
                     Log.Warning("No Done button found after submission for job: {Title} at {Company}", job.Title, job.Company);
                     //TODO: Check if modal is closed anyway
                 }
+
+                Log.Information("Successfully applied for job: {Title} at {Company}", job.Title, job.Company);
                 return true;
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to apply for job: {Title} at {Company}", job.Title, job.Company);
+                // Clean up any open modals before returning
+                CloseOpenModals();
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Closes any open Easy Apply modals to prevent blocking subsequent job card clicks
+        /// </summary>
+        private void CloseOpenModals()
+        {
+            try
+            {
+                // Try to find and close the Easy Apply modal
+                var closeButtonSelectors = new[]
+                {
+                    "button[aria-label*='Dismiss']",
+                    "button[data-test-modal-close-btn]",
+                    "button[aria-label*='Close']",
+                    "button[class*='modal-close']",
+                    ".artdeco-modal-overlay button[aria-label*='Dismiss']",
+                    ".artdeco-modal-overlay button[data-test-modal-close-btn]"
+                };
+
+                foreach (var selector in closeButtonSelectors)
+                {
+                    try
+                    {
+                        var closeButtons = _driver.FindElements(By.CssSelector(selector));
+                        foreach (var button in closeButtons.Where(b => b.Displayed))
+                        {
+                            button.Click();
+                            Thread.Sleep(1000); // Wait for modal to close
+                            Log.Information("Closed open modal after job application failure");
+                            return;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Try to press Escape key as a fallback
+                try
+                {
+                    _driver.FindElement(By.TagName("body")).SendKeys(OpenQA.Selenium.Keys.Escape);
+                    Thread.Sleep(1000);
+                    Log.Information("Pressed Escape key to close any open modals");
+                }
+                catch (Exception)
+                {
+                    // Ignore if this fails
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to close open modals after job application failure");
             }
         }
 

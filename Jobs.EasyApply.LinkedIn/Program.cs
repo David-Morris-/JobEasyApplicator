@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Serilog;
-using Jobs.EasyApply.Services;
+using Jobs.EasyApply.LinkedIn.Services;
 using Jobs.EasyApply.Common.Models;
 using System.Net.Http.Json;
 
-namespace Jobs.EasyApply
+namespace Jobs.EasyApply.LinkedIn
 {
     internal class Program
     {
@@ -17,7 +17,7 @@ namespace Jobs.EasyApply
 
             // Load configuration
             var configuration = new ConfigurationBuilder()
-                .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "Jobs.EasyApply"))
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
                 .AddJsonFile("appsettings.json")
                 .Build();
 

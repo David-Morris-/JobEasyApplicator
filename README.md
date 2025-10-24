@@ -168,12 +168,17 @@ The application uses `appsettings.json` for all configuration. Here's a detailed
 ```json
 {
   "Credentials": {
-    "Email": "your-email@example.com",
+    "Email": "your-linkedin-email@example.com",
     "Password": "your-linkedin-password"
   },
   "JobSearchParams": {
     "Title": ".NET Developer",
-    "Location": "Remote"
+    "Location": "Remote",
+    "ExperienceLevel": "Mid-Senior level",
+    "JobType": "Full-time",
+    "DatePosted": "Past Month",
+    "EasyApplyOnly": true,
+    "MaxJobsToApply": 50
   }
 }
 ```

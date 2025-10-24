@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobs.EasyApply", "Jobs.EasyApply\Jobs.EasyApply.csproj", "{E0C45105-9BFA-CA05-2955-445C6B06A2C9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobs.EasyApply.LinkedIn", "Jobs.EasyApply.LinkedIn\Jobs.EasyApply.LinkedIn.csproj", "{E0C45105-9BFA-CA05-2955-445C6B06A2C9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobs.EasyApply.API", "Jobs.EasyApply.API\Jobs.EasyApply.API.csproj", "{42D8F57A-5094-437D-804C-9A082A581BB8}"
 EndProject
@@ -58,6 +58,7 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+		StartupProject = {E0C45105-9BFA-CA05-2955-445C6B06A2C9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {94FFEA7A-D5E4-4DDF-8436-D121D9E776FF}
