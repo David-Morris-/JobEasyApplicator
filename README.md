@@ -6,6 +6,8 @@ A sophisticated .NET application that automates the process of searching for and
 
 - **Automated Job Search**: Searches LinkedIn for jobs based on configurable parameters
 - **Easy Apply Automation**: Automatically applies to jobs with LinkedIn's "Easy Apply" feature
+- **Enhanced Contact Form Detection**: Intelligently detects and handles pre-filled contact information forms
+- **Smart Form Field Analysis**: Automatically identifies when forms are complete vs requiring manual input
 - **Duplicate Prevention**: Tracks applied jobs to avoid re-applying
 - **Configurable Search Parameters**: Customizable job titles, locations, and credentials
 - **Comprehensive Logging**: Detailed logging using Serilog for monitoring and debugging
@@ -13,6 +15,28 @@ A sophisticated .NET application that automates the process of searching for and
 - **Clean Architecture**: Well-organized code structure following .NET best practices
 - **REST API**: Provides endpoints to retrieve applied jobs and job count
 - **Swagger UI**: Interactive API documentation and testing interface
+
+## 🔍 Enhanced Contact Form Detection
+
+The application includes advanced form field detection that intelligently handles LinkedIn's contact information forms:
+
+### How It Works
+- **Automatic Detection**: Identifies when a form is LinkedIn's standard contact information form
+- **Pre-filled Recognition**: Detects when fields are already populated with your LinkedIn profile data
+- **Smart Analysis**: Uses multiple detection strategies to ensure accurate field completion assessment
+- **Seamless Continuation**: Automatically proceeds when forms are complete, only pausing for actual additional questions
+
+### Benefits
+- **Reduced Manual Intervention**: No need to manually fill contact forms that are already complete
+- **Faster Processing**: Significantly speeds up the job application process
+- **Better User Experience**: Only pauses when truly necessary (for custom questions)
+- **Reliable Detection**: Uses comprehensive field analysis to avoid false positives
+
+### Technical Implementation
+- **Multiple Selectors**: Employs various CSS selectors and detection strategies
+- **Field Value Analysis**: Checks multiple sources for field values (value, text, innerText, innerHTML)
+- **LinkedIn-Specific Logic**: Handles LinkedIn's unique form behaviors and placeholder patterns
+- **Debugging Support**: Provides detailed console output for troubleshooting form detection issues
 
 ## 🌐 API Documentation
 
@@ -377,6 +401,22 @@ The application supports the following database operations through the repositor
 2. **LinkedIn login fails**: Verify credentials in `appsettings.json`
 3. **No jobs found**: Check search parameters and LinkedIn filters
 4. **Element not found**: LinkedIn may have updated their HTML structure
+5. **Contact form detection issues**: The application may incorrectly pause for manual input on pre-filled forms
+
+### Enhanced Contact Form Detection Issues
+
+If the application incorrectly pauses for manual input on contact forms that appear to be pre-filled:
+
+1. **Check Console Output**: Look for debug messages showing field detection status:
+   ```
+   Email field detected as filled using selector: input[required]
+   No phone field found, assuming not required
+   Contact fields status - Email: True, Phone: True, Country: True
+   ```
+
+2. **Verify Field Detection**: The application should automatically detect when contact forms are complete and continue without manual intervention
+
+3. **Update Detection Logic**: If LinkedIn changes their form structure, the detection selectors may need updating in `HtmlScraper.cs`
 
 ### Debug Mode
 
@@ -387,6 +427,15 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateLogger();
 ```
+
+### Recent Improvements
+
+#### Enhanced Contact Form Detection (Latest)
+- **Issue**: Application incorrectly paused for manual input on pre-filled LinkedIn contact forms
+- **Solution**: Implemented comprehensive form field detection with multiple selector strategies
+- **Result**: Application now automatically detects and handles pre-filled contact information
+- **Files Modified**: `Jobs.EasyApply.LinkedIn/Utilities/HtmlScraper.cs`
+- **Benefits**: Faster processing, reduced manual intervention, better user experience
 
 ## 🤝 Contributing
 
