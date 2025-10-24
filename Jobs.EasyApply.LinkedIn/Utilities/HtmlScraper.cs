@@ -371,14 +371,19 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     "select[required] option[selected][value='-1']"
                 };
 
+                var foundEmptyFields = new List<string>();
                 foreach (var selector in emptyFieldSelectors)
                 {
                     try
                     {
                         var elements = _driver.FindElements(By.CssSelector(selector));
-                        if (elements.Any(e => e.Displayed && IsFieldActuallyEmpty(e)))
+                        foreach (var element in elements.Where(e => e.Displayed))
                         {
-                            return true;
+                            if (IsFieldActuallyEmpty(element))
+                            {
+                                foundEmptyFields.Add(selector);
+                                Console.WriteLine($"Found empty field with selector: {selector}, tag: {element.TagName}, type: {element.GetAttribute("type")}");
+                            }
                         }
                     }
                     catch (NoSuchElementException)
@@ -386,6 +391,77 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                         // Continue to next selector
                         continue;
                     }
+                }
+
+                if (foundEmptyFields.Any())
+                {
+                    Console.WriteLine($"Found {foundEmptyFields.Count} empty required fields: {string.Join(", ", foundEmptyFields)}");
+                    return true;
+                }
+
+                // Additional debugging: Check all visible form fields to see what's actually on the page
+                Console.WriteLine("Debugging: Checking all visible form fields on page...");
+                try
+                {
+                    var allInputs = _driver.FindElements(By.CssSelector("input, textarea, select"));
+                    var visibleFormFields = allInputs.Where(e => e.Displayed).ToList();
+
+                    Console.WriteLine($"Found {visibleFormFields.Count} total visible form fields:");
+
+                    // Check for text inputs specifically since that's what the user mentioned
+                    var textInputs = visibleFormFields.Where(f => f.TagName.ToLower() == "input" &&
+                                                                (f.GetAttribute("type")?.ToLower() == "text" || f.GetAttribute("type") == null || f.GetAttribute("type") == ""));
+                    Console.WriteLine($"Found {textInputs.Count()} text input fields:");
+
+                    foreach (var field in textInputs)
+                    {
+                        string tagName = field.TagName;
+                        string type = field.GetAttribute("type") ?? "";
+                        string value = field.GetAttribute("value") ?? "";
+                        string placeholder = field.GetAttribute("placeholder") ?? "";
+                        string required = field.GetAttribute("required") ?? "";
+                        string ariaLabel = field.GetAttribute("aria-label") ?? "";
+                        string className = field.GetAttribute("class") ?? "";
+                        string name = field.GetAttribute("name") ?? "";
+                        string id = field.GetAttribute("id") ?? "";
+
+                        Console.WriteLine($"  TEXT INPUT: type='{type}' value='{value}' placeholder='{placeholder}' required='{required}' name='{name}' id='{id}' aria-label='{ariaLabel}'");
+
+                        // Check if this field should be considered empty
+                        bool isEmpty = IsFieldActuallyEmpty(field);
+                        Console.WriteLine($"    -> IsFieldActuallyEmpty() returns: {isEmpty}");
+
+                        if (isEmpty)
+                        {
+                            Console.WriteLine($"    -> *** THIS FIELD IS DETECTED AS EMPTY ***");
+                        }
+                    }
+
+                    // Also check all other visible fields
+                    var otherFields = visibleFormFields.Except(textInputs);
+                    Console.WriteLine($"Found {otherFields.Count()} other form fields:");
+
+                    foreach (var field in otherFields.Take(5)) // Limit for readability
+                    {
+                        string tagName = field.TagName;
+                        string type = field.GetAttribute("type") ?? "";
+                        string value = field.GetAttribute("value") ?? "";
+                        string placeholder = field.GetAttribute("placeholder") ?? "";
+                        string required = field.GetAttribute("required") ?? "";
+                        string ariaLabel = field.GetAttribute("aria-label") ?? "";
+                        string className = field.GetAttribute("class") ?? "";
+
+                        Console.WriteLine($"  {tagName}: type='{type}' value='{value}' placeholder='{placeholder}' required='{required}' aria-label='{ariaLabel}'");
+                    }
+
+                    if (otherFields.Count() > 5)
+                    {
+                        Console.WriteLine($"  ... and {otherFields.Count() - 5} more fields");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error during form field debugging: {ex.Message}");
                 }
 
                 // Check for required field indicators that might indicate missing answers
@@ -407,6 +483,7 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                         var indicators = _driver.FindElements(By.CssSelector(selector));
                         if (indicators.Any(e => e.Displayed))
                         {
+                            Console.WriteLine($"Found required field indicator: {selector}");
                             // If we find required indicators or error messages, assume there are empty fields
                             return true;
                         }
@@ -419,8 +496,9 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
 
                 return false;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"Error checking for empty required fields: {ex.Message}");
                 return false;
             }
         }
@@ -707,7 +785,7 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                             string innerText = element.GetAttribute("innerText") ?? "";
                             string innerHTML = element.GetAttribute("innerHTML") ?? "";
 
-                            // Consider empty if all possible value sources are empty
+                            // Consider empty if all possible value sources are empty or contain only whitespace
                             if (string.IsNullOrWhiteSpace(value) &&
                                 string.IsNullOrWhiteSpace(text) &&
                                 string.IsNullOrWhiteSpace(innerText) &&
@@ -721,13 +799,76 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                                 return true;
 
                             // Check for common LinkedIn placeholder values
-                            if (value == "Enter your email" || value == "Enter email" ||
-                                value == "Enter your phone" || value == "Enter phone" ||
-                                value == "Select country" || value == "Select region")
+                            var placeholderValues = new[]
+                            {
+                                "Enter your email", "Enter email", "Enter your phone", "Enter phone",
+                                "Select country", "Select region", "Type your answer here", "Add your answer",
+                                "Please specify", "Enter text", "Your answer", "Answer"
+                            };
+
+                            if (placeholderValues.Any(pv => value == pv || text == pv || innerText == pv))
                                 return true;
 
-                            // If we have any non-empty value, consider it filled
-                            if (!string.IsNullOrWhiteSpace(value) || !string.IsNullOrWhiteSpace(text))
+                            // Check for very short values that might be placeholders
+                            if (!string.IsNullOrWhiteSpace(value) && value.Length < 3)
+                            {
+                                var shortPlaceholderWords = new[] { "N/A", "NA", "n/a", "na", "-", "--", "...", "?", "??", "???", "None", "none" };
+                                if (shortPlaceholderWords.Contains(value))
+                                    return true;
+                            }
+
+                            // For text inputs, be more strict about what constitutes "filled"
+                            if (type == "text" || type == "" || type == null)
+                            {
+                                // Must have actual meaningful content
+                                if (string.IsNullOrWhiteSpace(value))
+                                    return true;
+
+                                // Check for common placeholder patterns and default values
+                                var placeholderPatterns = new[]
+                                {
+                                    "enter", "type", "add", "your", "please", "optional", "example", "sample", "test",
+                                    "n/a", "na", "none", "null", "undefined", "default", "placeholder", "temp",
+                                    "lorem", "ipsum", "foo", "bar", "baz", "xxx", "yyy", "zzz", "123", "abc"
+                                };
+
+                                var lowerValue = value.ToLower();
+                                if (placeholderPatterns.Any(pattern => lowerValue.Contains(pattern)))
+                                {
+                                    // Additional check: if it contains multiple placeholder words, likely not real content
+                                    var placeholderCount = placeholderPatterns.Count(pattern => lowerValue.Contains(pattern));
+                                    if (placeholderCount > 0 && value.Length < 20)
+                                        return true;
+                                }
+
+                                // Check for very short values that are likely placeholders
+                                if (value.Length < 3)
+                                {
+                                    var shortValues = new[] { "...", "..", ".", "-", "--", "_", "__", "?", "??", "???", "!", "!!" };
+                                    if (shortValues.Contains(value))
+                                        return true;
+                                }
+
+                                // Check for numeric-only values (might be defaults)
+                                if (value.All(char.IsDigit) && value.Length < 6)
+                                    return true;
+
+                                // Check for repetitive characters (likely placeholders)
+                                if (value.Length > 2 && value.Distinct().Count() < 3)
+                                {
+                                    var repetitivePatterns = new[] { "aaa", "bbb", "ccc", "ddd", "xxx", "yyy", "zzz", "111", "222" };
+                                    if (repetitivePatterns.Any(pattern => lowerValue.Contains(pattern)))
+                                        return true;
+                                }
+
+                                // Check for obviously fake content
+                                if (lowerValue.Contains("johndoe") || lowerValue.Contains("janedoe") ||
+                                    lowerValue.Contains("testuser") || lowerValue.Contains("example.com"))
+                                    return true;
+                            }
+
+                            // If we have any meaningful value, consider it filled
+                            if (!string.IsNullOrWhiteSpace(value) && value.Length > 2)
                                 return false;
 
                             return true;
