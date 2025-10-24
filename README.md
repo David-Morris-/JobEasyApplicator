@@ -59,14 +59,6 @@ The project follows a clean architecture pattern with multiple .NET projects org
 
 ```
 📁 JobEasyApplicator/
-├── 📁 Jobs.EasyApply/              # Main console application for job automation
-│   ├── 📁 Services/                # Core business logic services
-│   │   ├── JobApplicator.cs        # Handles the job application process
-│   │   └── JobScraper.cs           # Manages job searching and scraping
-│   ├── 📁 Utilities/               # Utility classes for web interactions
-│   │   └── HtmlScraper.cs          # HTML parsing and element interaction utilities
-│   ├── Program.cs                  # Application entry point
-│   └── Jobs.EasyApply.csproj       # Project file
 ├── 📁 Jobs.EasyApply.API/          # REST API for retrieving application data
 │   ├── 📁 Controllers/             # API controllers
 │   │   └── JobsController.cs       # Endpoints for jobs and statistics
@@ -103,6 +95,14 @@ The project follows a clean architecture pattern with multiple .NET projects org
 │   │   ├── IJobApplicationService.cs # Service interface
 │   │   └── JobApplicationService.cs # Service implementation
 │   └── Jobs.EasyApply.Infrastructure.csproj # Project file
+├── 📁 Jobs.EasyApply.LinkedIn/     # Main console application for job automation
+│   ├── 📁 Services/                # Core business logic services
+│   │   ├── JobApplicator.cs        # Handles the job application process
+│   │   └── JobScraper.cs           # Manages job searching and scraping
+│   ├── 📁 Utilities/               # Utility classes for web interactions
+│   │   └── HtmlScraper.cs          # HTML parsing and element interaction utilities
+│   ├── Program.cs                  # Application entry point
+│   └── Jobs.EasyApply.LinkedIn.csproj # Project file
 ├── README.md                       # This documentation file
 ├── ROADMAP.md                      # Project roadmap
 ├── swagger-screenshot.png         # API screenshot
@@ -112,7 +112,7 @@ The project follows a clean architecture pattern with multiple .NET projects org
 
 ### Project Structure Details
 
-#### **Jobs.EasyApply (Main Application)**
+#### **Jobs.EasyApply.LinkedIn (Main Application)**
 - **Purpose**: Console application that orchestrates the job search and application process
 - **Key Components**:
   - `Program.cs`: Application entry point with configuration loading and dependency injection setup
