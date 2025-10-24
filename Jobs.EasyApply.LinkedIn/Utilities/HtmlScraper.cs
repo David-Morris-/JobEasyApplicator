@@ -216,6 +216,20 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     }
                 }
 
+                // Check for h3 with "Additional Questions" text
+                try
+                {
+                    var h3Elements = _driver.FindElements(By.CssSelector("h3"));
+                    if (h3Elements.Any(h3 => h3.Displayed && h3.Text.Contains("Additional Questions")))
+                    {
+                        return true;
+                    }
+                }
+                catch (NoSuchElementException)
+                {
+                    // Continue
+                }
+
                 return false;
             }
             catch (Exception)
