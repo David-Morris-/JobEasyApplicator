@@ -110,6 +110,50 @@ The project follows a clean architecture pattern with multiple .NET projects org
 └── Jobs.EasyApply.sln              # Visual Studio solution file
 ```
 
+### Project Structure Details
+
+#### **Jobs.EasyApply (Main Application)**
+- **Purpose**: Console application that orchestrates the job search and application process
+- **Key Components**:
+  - `Program.cs`: Application entry point with configuration loading and dependency injection setup
+  - `JobScraper.cs`: Handles LinkedIn job searching, pagination, and job listing extraction
+  - `JobApplicator.cs`: Manages the job application workflow and form interactions
+- **Responsibilities**: Web scraping, form automation, error handling, and API communication
+
+#### **Jobs.EasyApply.API (REST API)**
+- **Purpose**: Provides HTTP endpoints for retrieving job application data and statistics
+- **Key Components**:
+  - `JobsController.cs`: REST endpoints for job data retrieval
+  - `JobDTO.cs`: Data transfer objects for API responses
+  - `Program.cs`: API startup configuration with Swagger integration
+- **Responsibilities**: Data exposure, API documentation, CORS configuration
+
+#### **Jobs.EasyApply.Common (Shared Models)**
+- **Purpose**: Contains shared entities, models, and configuration classes
+- **Key Components**:
+  - `AppliedJob.cs`: Entity model for tracking job applications
+  - `JobListing.cs`: Model representing job opportunities
+  - `AppSettings.cs`: Configuration model for application settings
+  - `ApplicationStats.cs`: Statistics and metrics model
+- **Responsibilities**: Data contracts, shared types, configuration models
+
+#### **Jobs.EasyApply.Infrastructure (Data Access)**
+- **Purpose**: Handles data persistence, repository implementations, and external services
+- **Key Components**:
+  - `JobDbContext.cs`: Entity Framework Core database context
+  - Repository implementations with Unit of Work pattern
+  - Specification pattern for complex queries
+  - Service layer for business logic
+- **Responsibilities**: Database operations, data persistence, query specifications
+
+#### **Jobs.EasyApply.Utilities (Web Interaction)**
+- **Purpose**: Specialized utilities for web scraping and HTML parsing
+- **Key Components**:
+  - `HtmlScraper.cs`: Advanced HTML parsing with intelligent form detection
+  - Enhanced contact form analysis and field completion detection
+  - Multiple selector strategies for robust element finding
+- **Responsibilities**: DOM manipulation, form field analysis, LinkedIn-specific parsing
+
 ### Architecture Principles
 
 - **Layered Architecture**: Organized into distinct layers (Presentation, Business Logic, Data Access) for better separation of concerns
