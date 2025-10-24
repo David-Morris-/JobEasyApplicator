@@ -8,6 +8,7 @@ A sophisticated .NET application that automates the process of searching for and
 - **Easy Apply Automation**: Automatically applies to jobs with LinkedIn's "Easy Apply" feature
 - **Enhanced Contact Form Detection**: Intelligently detects and handles pre-filled contact information forms
 - **Smart Form Field Analysis**: Automatically identifies when forms are complete vs requiring manual input
+- **API Connectivity Validation**: Tests API connectivity before starting job search to ensure proper data flow
 - **Duplicate Prevention**: Tracks applied jobs to avoid re-applying
 - **Configurable Search Parameters**: Customizable job titles, locations, and credentials
 - **Comprehensive Logging**: Detailed logging using Serilog for monitoring and debugging
@@ -38,6 +39,37 @@ The application includes advanced form field detection that intelligently handle
 - **LinkedIn-Specific Logic**: Handles LinkedIn's unique form behaviors and placeholder patterns
 - **Debugging Support**: Provides detailed console output for troubleshooting form detection issues
 
+## 🔗 API Connectivity Validation
+
+The application includes built-in API connectivity validation to ensure proper data flow between the LinkedIn automation and the data tracking API:
+
+### How It Works
+- **Pre-flight Check**: Tests API connectivity before starting job search
+- **Database Validation**: Verifies database connection and accessibility
+- **Early Failure Detection**: Stops execution if API is unavailable to prevent data loss
+- **Connection Monitoring**: Provides clear feedback about API status and database health
+
+### Benefits
+- **Data Integrity**: Prevents job applications from being processed without proper data storage
+- **Early Error Detection**: Identifies connectivity issues before starting automation
+- **Better Reliability**: Ensures all job applications are properly tracked and recorded
+- **User Feedback**: Clear messaging about system status and requirements
+
+### Technical Implementation
+- **Connection Endpoint**: `GET /api/jobs/test-connection` for connectivity validation
+- **Database Testing**: Validates database accessibility and retrieves current application count
+- **Graceful Handling**: Provides detailed error messages for troubleshooting
+- **Automatic Retry**: Can be configured for automatic retry on transient failures
+
+### API Test Connection Response
+```json
+{
+  "Success": true,
+  "Message": "Database connection successful",
+  "Count": 15
+}
+```
+
 ## 🌐 API Documentation
 
 The application includes a REST API for retrieving job application data. The API is built using ASP.NET Core and provides the following endpoints:
@@ -46,6 +78,7 @@ The application includes a REST API for retrieving job application data. The API
 
 - **GET /api/Jobs**: Retrieves all applied jobs
 - **GET /api/Jobs/count**: Retrieves the count of applied jobs
+- **GET /api/Jobs/test-connection**: Tests database connectivity and returns connection status
 
 ### API Screenshot
 
