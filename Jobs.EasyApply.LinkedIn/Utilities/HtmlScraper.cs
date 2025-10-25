@@ -364,6 +364,16 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     "select[required]:not([value])"
                 };
 
+                // Special handling for LinkedIn forms - check if fields appear filled in browser but are empty in DOM
+                // This handles cases where LinkedIn pre-fills values but doesn't set the value attribute
+                var prefilledButEmptyInDOM = CheckForPrefilledButEmptyInDOMFields();
+                if (prefilledButEmptyInDOM.Any())
+                {
+                    Console.WriteLine($"Found {prefilledButEmptyInDOM.Count} fields that appear pre-filled in browser but are empty in DOM");
+                    // Don't treat these as empty since they appear filled to the user
+                    return false;
+                }
+
                 // Use a set to track unique elements and avoid duplication
                 var foundEmptyElements = new HashSet<string>();
                 var foundEmptySelectors = new List<string>();
@@ -829,7 +839,7 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                                 {
                                     "enter", "type", "add", "your", "please", "optional", "example", "sample", "test",
                                     "n/a", "na", "none", "null", "undefined", "default", "placeholder", "temp",
-                                    "lorem", "ipsum", "foo", "bar", "baz", "xxx", "yyy", "zzz", "123", "abc"
+                                    "lorem", "ipsum", "foo", "bar", "baz", "xxx", "yyy", "zzz", "abc"
                                 };
 
                                 var lowerValue = value.ToLower();
@@ -849,14 +859,20 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                                         return true;
                                 }
 
-                                // Check for numeric-only values (might be defaults)
-                                if (value.All(char.IsDigit) && value.Length < 6)
-                                    return true;
+                                // Allow numeric-only values - these are often legitimate answers (like "8", "2", etc.)
+                                // Only consider numeric values as potentially empty if they match specific placeholder patterns
+                                if (value.All(char.IsDigit))
+                                {
+                                    var numericPlaceholders = new[] { "123", "456", "789", "000", "111", "222", "333", "444", "555", "666", "777", "888", "999" };
+                                    if (numericPlaceholders.Contains(value))
+                                        return true;
+                                    // Single digits and reasonable numbers are likely real answers, so don't reject them
+                                }
 
                                 // Check for repetitive characters (likely placeholders)
                                 if (value.Length > 2 && value.Distinct().Count() < 3)
                                 {
-                                    var repetitivePatterns = new[] { "aaa", "bbb", "ccc", "ddd", "xxx", "yyy", "zzz", "111", "222" };
+                                    var repetitivePatterns = new[] { "aaa", "bbb", "ccc", "ddd", "xxx", "yyy", "zzz" };
                                     if (repetitivePatterns.Any(pattern => lowerValue.Contains(pattern)))
                                         return true;
                                 }
@@ -1016,6 +1032,118 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Check for fields that appear pre-filled in the browser but are empty in the DOM
+        /// This handles LinkedIn's dynamic form population where values are shown but not in the value attribute
+        /// </summary>
+        private List<IWebElement> CheckForPrefilledButEmptyInDOMFields()
+        {
+            var prefilledFields = new List<IWebElement>();
+
+            try
+            {
+                // Look for input fields that are empty in DOM but might be visually filled
+                var inputSelectors = new[]
+                {
+                    "input[type='text'][required]",
+                    "input[type='number'][required]",
+                    "input[type='email'][required]",
+                    "input[type='tel'][required]",
+                    "textarea[required]",
+                    "select[required]"
+                };
+
+                foreach (var selector in inputSelectors)
+                {
+                    try
+                    {
+                        var elements = _driver.FindElements(By.CssSelector(selector));
+                        foreach (var element in elements.Where(e => e.Displayed))
+                        {
+                            // Check if field appears empty in DOM but might be visually filled
+                            if (IsFieldActuallyEmpty(element))
+                            {
+                                // Additional check: see if the field has any visual indicators of being filled
+                                // LinkedIn sometimes shows values in the UI but not in the DOM
+
+                                // Check if the field has a specific class that indicates it's filled
+                                string className = element.GetAttribute("class") ?? "";
+                                if (className.Contains("filled") || className.Contains("prefilled") || className.Contains("complete"))
+                                {
+                                    Console.WriteLine($"Field appears filled based on class: {className}");
+                                    prefilledFields.Add(element);
+                                    continue;
+                                }
+
+                                // Check if there's a parent element that indicates the field is filled
+                                var parent = element.FindElement(By.XPath(".."));
+                                string parentClass = parent.GetAttribute("class") ?? "";
+                                if (parentClass.Contains("filled") || parentClass.Contains("prefilled") || parentClass.Contains("complete"))
+                                {
+                                    Console.WriteLine($"Field appears filled based on parent class: {parentClass}");
+                                    prefilledFields.Add(element);
+                                    continue;
+                                }
+
+                                // Check for LinkedIn-specific indicators
+                                // LinkedIn often uses aria attributes or data attributes to indicate filled fields
+                                string ariaValue = element.GetAttribute("aria-valuetext") ?? "";
+                                string dataValue = element.GetAttribute("data-value") ?? "";
+                                string ariaLabel = element.GetAttribute("aria-label") ?? "";
+
+                                if (!string.IsNullOrWhiteSpace(ariaValue) || !string.IsNullOrWhiteSpace(dataValue))
+                                {
+                                    Console.WriteLine($"Field appears filled based on aria/data attributes: aria-valuetext='{ariaValue}', data-value='{dataValue}'");
+                                    prefilledFields.Add(element);
+                                    continue;
+                                }
+
+                                // Check if the field has a sibling element that shows the value
+                                // LinkedIn sometimes displays values in separate elements
+                                var siblings = parent.FindElements(By.XPath("*"));
+                                foreach (var sibling in siblings)
+                                {
+                                    string siblingText = sibling.Text ?? "";
+                                    string siblingClass = sibling.GetAttribute("class") ?? "";
+
+                                    // Look for siblings that might contain the actual value
+                                    if (siblingClass.Contains("value") || siblingClass.Contains("text") || siblingClass.Contains("display"))
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(siblingText) &&
+                                            (siblingText.All(char.IsDigit) || siblingText.Length > 1)) // Likely a real value
+                                        {
+                                            Console.WriteLine($"Field appears filled based on sibling element: '{siblingText}'");
+                                            prefilledFields.Add(element);
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Check if the field has focus or cursor position that suggests it's filled
+                                // This is a long shot but worth checking
+                                string style = element.GetAttribute("style") ?? "";
+                                if (style.Contains("cursor") || style.Contains("caret"))
+                                {
+                                    Console.WriteLine("Field appears filled based on cursor/caret styling");
+                                    prefilledFields.Add(element);
+                                }
+                            }
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking for prefilled fields: {ex.Message}");
+            }
+
+            return prefilledFields;
         }
     }
 }

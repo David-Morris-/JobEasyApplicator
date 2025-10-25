@@ -359,7 +359,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
                         // Check if job was previously applied for
                         var previouslyApplied = innerHtml != null && innerHtml.Contains("applied", StringComparison.OrdinalIgnoreCase);
 
-                        jobs.Add(new JobListing { Title = title, Company = company, JobId = jobId, Url = url, PreviouslyApplied = previouslyApplied });
+                        jobs.Add(new JobListing { Title = title, Company = company, JobId = jobId, Url = url, Provider = JobProvider.LinkedIn, PreviouslyApplied = previouslyApplied });
                         newJobsFound = true;
                     }
                     catch (NoSuchElementException ex)

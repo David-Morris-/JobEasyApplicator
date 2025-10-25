@@ -27,6 +27,7 @@ namespace Jobs.EasyApply.API.Controllers
                 Company = job.Company,
                 JobId = job.JobId,
                 Url = job.Url,
+                Provider = job.Provider.ToString(),
                 AppliedDate = job.AppliedDate,
                 Success = job.Success
             }).ToList();
@@ -56,13 +57,20 @@ namespace Jobs.EasyApply.API.Controllers
                     Success = jobDto.Success
                 };
 
+                // Parse provider from string to enum, default to LinkedIn if parsing fails
+                if (!Enum.TryParse<JobProvider>(jobDto.Provider, true, out var provider))
+                {
+                    provider = JobProvider.LinkedIn; // Default to LinkedIn
+                }
+
                 // Use the service to process the job application
                 var result = await _service.ProcessJobApplicationAsync(new JobListing
                 {
                     Title = jobDto.JobTitle,
                     Company = jobDto.Company,
                     JobId = jobDto.JobId,
-                    Url = jobDto.Url
+                    Url = jobDto.Url,
+                    Provider = provider
                 });
 
                 if (result)
@@ -108,6 +116,7 @@ namespace Jobs.EasyApply.API.Controllers
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider.ToString(),
                     AppliedDate = job.AppliedDate,
                     Success = job.Success
                 }).ToList();
@@ -133,6 +142,7 @@ namespace Jobs.EasyApply.API.Controllers
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider.ToString(),
                     AppliedDate = job.AppliedDate,
                     Success = job.Success
                 }).ToList();
@@ -158,6 +168,7 @@ namespace Jobs.EasyApply.API.Controllers
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider.ToString(),
                     AppliedDate = job.AppliedDate,
                     Success = job.Success
                 }).ToList();
@@ -183,6 +194,7 @@ namespace Jobs.EasyApply.API.Controllers
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider.ToString(),
                     AppliedDate = job.AppliedDate,
                     Success = job.Success
                 }).ToList();
@@ -208,6 +220,7 @@ namespace Jobs.EasyApply.API.Controllers
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider.ToString(),
                     AppliedDate = job.AppliedDate,
                     Success = job.Success
                 }).ToList();

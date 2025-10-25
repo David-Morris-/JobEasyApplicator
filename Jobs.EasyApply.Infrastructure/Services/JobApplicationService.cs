@@ -60,6 +60,7 @@ namespace Jobs.EasyApply.Infrastructure.Services
                     Company = job.Company,
                     JobId = job.JobId,
                     Url = job.Url,
+                    Provider = job.Provider, // Use the provider from the job listing
                     AppliedDate = DateTime.UtcNow,
                     Success = true // This would be determined by the actual application process
                 };
