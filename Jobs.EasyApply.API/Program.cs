@@ -1,7 +1,4 @@
 using Jobs.EasyApply.Infrastructure.Services;
-using Jobs.EasyApply.Infrastructure.Repositories;
-using Jobs.EasyApply.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,13 +11,10 @@ builder.Services.AddSwaggerGen();
 // Add logging
 builder.Services.AddLogging();
 
-// Services
-builder.Services.AddScoped<IJobApplicationService, JobApplicationService>();
-builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// Database
-builder.Services.AddDbContext<JobDbContext>(options => options.UseSqlite("Data Source=appliedJobs.db"));
+// Add Infrastructure services
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("DefaultConnection connection string is not configured.");
+builder.Services.AddInfrastructureServices(connectionString);
 
 //Controllers
 builder.Services.AddControllers();
