@@ -42,11 +42,9 @@ The application now includes a comprehensive provider tracking system:
 ```csharp
 public enum JobProvider
 {
-    LinkedIn,    // 0
-    Indeed,      // 1
-    Glassdoor,   // 2
-    CompanyWebsite, // 3
-    Other        // 4
+    LinkedIn,        // 0
+    Indeed,          // 1
+    Dice            // 2
 }
 ```
 
