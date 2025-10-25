@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Transactions;
 using Jobs.EasyApply.Infrastructure.Data;
+using Jobs.EasyApply.Infrastructure.Repositories.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
@@ -25,9 +26,12 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Saves all pending changes to the database
+        /// Saves all pending changes to the database asynchronously
         /// </summary>
         /// <returns>Number of state entries written to the database</returns>
+        /// <exception cref="RepositoryConnectionException">Thrown when database connection fails</exception>
+        /// <exception cref="RepositoryValidationException">Thrown when data validation fails</exception>
+        /// <exception cref="ConcurrencyException">Thrown when concurrency conflicts occur</exception>
         public async Task<int> SaveChangesAsync()
         {
             try
@@ -39,18 +43,27 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
                 {
                     _logger.LogInformation("Successfully saved {ChangesCount} changes to database", result);
                 }
+                else
+                {
+                    _logger.LogDebug("No changes to save to database");
+                }
 
                 return result;
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogError(ex, "Concurrency error while saving changes");
+                throw new ConcurrencyException("Concurrency conflict occurred while saving changes");
+            }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Error saving changes to database");
-                throw new InvalidOperationException("Error saving changes to database", ex);
+                _logger.LogError(ex, "Database update error while saving changes");
+                throw new RepositoryValidationException("Failed to save changes due to validation errors", ex);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
             {
                 _logger.LogError(ex, "Unexpected error saving changes to database");
-                throw;
+                throw new RepositoryConnectionException("Failed to save changes to database", ex);
             }
         }
 

@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 namespace Jobs.EasyApply.Infrastructure.Repositories.Exceptions
 {
     /// <summary>
-    /// Base exception for repository operations
+    /// Base exception for all repository operations
     /// </summary>
     [Serializable]
     public class RepositoryException : Exception
@@ -18,7 +18,7 @@ namespace Jobs.EasyApply.Infrastructure.Repositories.Exceptions
     }
 
     /// <summary>
-    /// Exception thrown when an entity is not found
+    /// Exception thrown when an entity is not found in the repository
     /// </summary>
     [Serializable]
     public class EntityNotFoundException : RepositoryException
@@ -50,7 +50,7 @@ namespace Jobs.EasyApply.Infrastructure.Repositories.Exceptions
     }
 
     /// <summary>
-    /// Exception thrown when a duplicate entity is found
+    /// Exception thrown when a duplicate entity is found in the repository
     /// </summary>
     [Serializable]
     public class DuplicateEntityException : RepositoryException
@@ -122,5 +122,70 @@ namespace Jobs.EasyApply.Infrastructure.Repositories.Exceptions
         public ConcurrencyException(string message, Exception innerException) : base(message, innerException) { }
 
         protected ConcurrencyException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+    }
+
+    /// <summary>
+    /// Exception thrown when database connection fails
+    /// </summary>
+    [Serializable]
+    public class RepositoryConnectionException : RepositoryException
+    {
+        public string? ConnectionString { get; }
+
+        public RepositoryConnectionException() { }
+
+        public RepositoryConnectionException(string? connectionString)
+            : base("Database connection failed.")
+        {
+            ConnectionString = connectionString;
+        }
+
+        public RepositoryConnectionException(string message, Exception innerException) : base(message, innerException) { }
+
+        protected RepositoryConnectionException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+    }
+
+    /// <summary>
+    /// Exception thrown when repository operation times out
+    /// </summary>
+    [Serializable]
+    public class RepositoryTimeoutException : RepositoryException
+    {
+        public TimeSpan Timeout { get; }
+
+        public RepositoryTimeoutException() { }
+
+        public RepositoryTimeoutException(TimeSpan timeout)
+            : base($"Repository operation timed out after {timeout.TotalSeconds} seconds.")
+        {
+            Timeout = timeout;
+        }
+
+        public RepositoryTimeoutException(string message) : base(message) { }
+
+        public RepositoryTimeoutException(string message, Exception innerException) : base(message, innerException) { }
+
+        protected RepositoryTimeoutException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+    }
+
+    /// <summary>
+    /// Exception thrown when repository configuration is invalid
+    /// </summary>
+    [Serializable]
+    public class RepositoryConfigurationException : RepositoryException
+    {
+        public string? ConfigurationKey { get; }
+
+        public RepositoryConfigurationException() { }
+
+        public RepositoryConfigurationException(string? configurationKey)
+            : base($"Repository configuration is invalid for key: {configurationKey}")
+        {
+            ConfigurationKey = configurationKey;
+        }
+
+        public RepositoryConfigurationException(string message, Exception innerException) : base(message, innerException) { }
+
+        protected RepositoryConfigurationException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
 }
