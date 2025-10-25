@@ -261,5 +261,37 @@ namespace Jobs.EasyApply.API.Controllers
                 return Ok(new { Success = false, Message = "Database connection failed", Error = ex.Message });
             }
         }
+
+        [HttpGet("provider/{provider}")]
+        public async Task<IActionResult> GetAppliedJobsByProvider(string provider)
+        {
+            try
+            {
+                // Parse provider from string to enum, default to LinkedIn if parsing fails
+                if (!Enum.TryParse<JobProvider>(provider, true, out var providerEnum))
+                {
+                    return BadRequest(new { Success = false, Message = $"Invalid provider: {provider}. Valid values are: {string.Join(", ", Enum.GetNames(typeof(JobProvider)))}" });
+                }
+
+                var appliedJobs = await _service.GetAppliedJobsByProviderAsync(providerEnum);
+                var jobDtos = appliedJobs.Select(job => new JobDTO
+                {
+                    Id = job.Id,
+                    JobTitle = job.JobTitle,
+                    Company = job.Company,
+                    JobId = job.JobId,
+                    Url = job.Url,
+                    Provider = job.Provider.ToString(),
+                    AppliedDate = job.AppliedDate,
+                    Success = job.Success
+                }).ToList();
+
+                return Ok(jobDtos);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "Internal server error", Error = ex.Message });
+            }
+        }
     }
 }

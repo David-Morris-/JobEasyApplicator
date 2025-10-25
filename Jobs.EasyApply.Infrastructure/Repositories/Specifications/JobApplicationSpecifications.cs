@@ -74,4 +74,16 @@ namespace Jobs.EasyApply.Infrastructure.Repositories.Specifications
             ApplyPaging(skip, take);
         }
     }
+
+    /// <summary>
+    /// Specification for filtering job applications by provider
+    /// </summary>
+    public class JobApplicationByProviderSpecification : BaseSpecification<AppliedJob>
+    {
+        public JobApplicationByProviderSpecification(JobProvider provider)
+            : base(job => job.Provider == provider)
+        {
+            AddOrderByDescending(job => job.AppliedDate);
+        }
+    }
 }

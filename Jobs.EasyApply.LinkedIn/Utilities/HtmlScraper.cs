@@ -343,8 +343,6 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     "input[type='text'][required]:empty",
                     "input[type='email'][required]:empty",
                     "input[type='tel'][required]:empty",
-                    "input[type='radio'][required]:not(:checked)",
-                    "input[type='checkbox'][required]:not(:checked)",
                     "textarea[required]:empty",
                     "select[required] option[selected][value='']",
 
@@ -372,6 +370,22 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     Console.WriteLine($"Found {prefilledButEmptyInDOM.Count} fields that appear pre-filled in browser but are empty in DOM");
                     // Don't treat these as empty since they appear filled to the user
                     return false;
+                }
+
+                // Check for radio button groups - if any radio button in a group is selected, the group is filled
+                var unfilledRadioGroups = CheckForUnfilledRadioButtonGroups();
+                if (unfilledRadioGroups.Any())
+                {
+                    Console.WriteLine($"Found {unfilledRadioGroups.Count} unfilled radio button groups");
+                    return true;
+                }
+
+                // Check for validation errors that indicate empty required fields
+                var validationErrors = CheckForValidationErrors();
+                if (validationErrors.Any())
+                {
+                    Console.WriteLine($"Found {validationErrors.Count} validation errors indicating empty required fields");
+                    return true;
                 }
 
                 // Use a set to track unique elements and avoid duplication
@@ -1144,6 +1158,149 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
             }
 
             return prefilledFields;
+        }
+
+        /// <summary>
+        /// Check for radio button groups that don't have any selected option
+        /// </summary>
+        private List<string> CheckForUnfilledRadioButtonGroups()
+        {
+            var unfilledGroups = new List<string>();
+
+            try
+            {
+                // Find all radio button groups (grouped by name attribute)
+                var radioButtons = _driver.FindElements(By.CssSelector("input[type='radio'][aria-required='true']"));
+
+                // Group radio buttons by their name attribute
+                var radioGroups = radioButtons
+                    .Where(rb => rb.Displayed)
+                    .GroupBy(rb => rb.GetAttribute("name"))
+                    .Where(group => !string.IsNullOrEmpty(group.Key));
+
+                foreach (var group in radioGroups)
+                {
+                    // Check if any radio button in this group is selected
+                    bool anySelected = group.Any(rb => rb.Selected);
+
+                    if (!anySelected)
+                    {
+                        Console.WriteLine($"Found unfilled radio button group: {group.Key} with {group.Count()} options");
+                        unfilledGroups.Add(group.Key);
+                    }
+                }
+
+                // Also check for fieldset-based radio groups (LinkedIn's structure)
+                var fieldsets = _driver.FindElements(By.CssSelector("fieldset[aria-required='true']"));
+                foreach (var fieldset in fieldsets.Where(fs => fs.Displayed))
+                {
+                    var radioButtonsInFieldset = fieldset.FindElements(By.CssSelector("input[type='radio']"));
+                    if (radioButtonsInFieldset.Any())
+                    {
+                        bool anySelected = radioButtonsInFieldset.Any(rb => rb.Selected);
+                        if (!anySelected)
+                        {
+                            string fieldsetId = fieldset.GetAttribute("id") ?? "unknown";
+                            Console.WriteLine($"Found unfilled fieldset radio group: {fieldsetId} with {radioButtonsInFieldset.Count} options");
+                            unfilledGroups.Add(fieldsetId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking for unfilled radio button groups: {ex.Message}");
+            }
+
+            return unfilledGroups;
+        }
+
+        /// <summary>
+        /// Check for validation error messages that indicate empty required fields
+        /// </summary>
+        private List<string> CheckForValidationErrors()
+        {
+            var validationErrors = new List<string>();
+
+            try
+            {
+                // Look for LinkedIn's specific error message patterns
+                var errorSelectors = new[]
+                {
+                    // LinkedIn's error message containers
+                    "div[class*='artdeco-inline-feedback--error']",
+                    "div[class*='error']",
+                    "span[class*='error']",
+                    "div[class*='validation-error']",
+                    "span[class*='validation-error']",
+                    "div[role='alert']",
+                    "span[role='alert']",
+
+                    // Error messages with specific text patterns
+                    "*[class*='feedback']:has(*:contains('required'))",
+                    "*[class*='feedback']:has(*:contains('selection'))",
+                    "*[class*='feedback']:has(*:contains('enter'))",
+                    "*[class*='feedback']:has(*:contains('choose'))",
+                    "*[class*='feedback']:has(*:contains('specify'))"
+                };
+
+                foreach (var selector in errorSelectors)
+                {
+                    try
+                    {
+                        var errorElements = _driver.FindElements(By.CssSelector(selector));
+                        foreach (var errorElement in errorElements.Where(e => e.Displayed))
+                        {
+                            string errorText = errorElement.Text?.ToLower() ?? "";
+                            string elementId = errorElement.GetAttribute("id") ?? "unknown";
+
+                            // Check for common LinkedIn error messages
+                            if (errorText.Contains("required") ||
+                                errorText.Contains("selection") ||
+                                errorText.Contains("enter") ||
+                                errorText.Contains("choose") ||
+                                errorText.Contains("specify") ||
+                                errorText.Contains("make a selection") ||
+                                errorText.Contains("please make") ||
+                                errorText.Contains("this field is required") ||
+                                errorText.Contains("decimal number"))
+                            {
+                                Console.WriteLine($"Found validation error: '{errorText}' in element {elementId}");
+                                validationErrors.Add(elementId);
+                            }
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Also check for specific LinkedIn error patterns in form field containers
+                var formFieldContainers = _driver.FindElements(By.CssSelector("div[class*='form-element']"));
+                foreach (var container in formFieldContainers.Where(c => c.Displayed))
+                {
+                    var errorDivs = container.FindElements(By.CssSelector("div[class*='error'], span[class*='error']"));
+                    if (errorDivs.Any())
+                    {
+                        foreach (var errorDiv in errorDivs)
+                        {
+                            string errorText = errorDiv.Text?.ToLower() ?? "";
+                            if (!string.IsNullOrWhiteSpace(errorText))
+                            {
+                                Console.WriteLine($"Found form container validation error: '{errorText}'");
+                                validationErrors.Add(container.GetAttribute("id") ?? "form-container");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking for validation errors: {ex.Message}");
+            }
+
+            return validationErrors;
         }
     }
 }

@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Jobs.EasyApply.Infrastructure.Data;
 using Jobs.EasyApply.Infrastructure.Repositories.Specifications;
+using Jobs.EasyApply.Infrastructure.Repositories.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jobs.EasyApply.Infrastructure.Repositories
@@ -26,7 +27,7 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         /// </summary>
         /// <param name="id">The primary key value</param>
         /// <returns>The entity if found, null otherwise</returns>
-        public virtual async Task<TEntity> GetByIdAsync(TKey id)
+        public virtual async Task<TEntity?> GetByIdAsync(TKey id)
         {
             return await _dbSet.FindAsync(id);
         }
@@ -45,7 +46,7 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         /// </summary>
         /// <param name="specification">The specification criteria</param>
         /// <returns>Filtered list of entities</returns>
-        public virtual async Task<IEnumerable<TEntity>> GetAsync(ISpecification<TEntity> specification = null)
+        public virtual async Task<IEnumerable<TEntity>> GetAsync(ISpecification<TEntity>? specification = null)
         {
             var query = ApplySpecification(_dbSet.AsQueryable(), specification);
             return await query.ToListAsync();
@@ -118,10 +119,127 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         /// </summary>
         /// <param name="specification">The specification criteria</param>
         /// <returns>The count of filtered entities</returns>
-        public virtual async Task<int> CountAsync(ISpecification<TEntity> specification)
+        public virtual async Task<int> CountAsync(ISpecification<TEntity>? specification)
         {
             var query = ApplySpecification(_dbSet.AsQueryable(), specification);
             return await query.CountAsync();
+        }
+
+        /// <summary>
+        /// Adds multiple entities in a single operation
+        /// </summary>
+        /// <param name="entities">The entities to add</param>
+        /// <returns>The added entities</returns>
+        public virtual async Task<IEnumerable<TEntity>> AddRangeAsync(IEnumerable<TEntity> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            var entitiesList = entities.ToList();
+            if (!entitiesList.Any())
+                return entitiesList;
+
+            await _dbSet.AddRangeAsync(entitiesList);
+            return entitiesList;
+        }
+
+        /// <summary>
+        /// Updates multiple entities in a single operation
+        /// </summary>
+        /// <param name="entities">The entities to update</param>
+        /// <returns>The updated entities</returns>
+        public virtual Task<IEnumerable<TEntity>> UpdateRangeAsync(IEnumerable<TEntity> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            var entitiesList = entities.ToList();
+            if (!entitiesList.Any())
+                return Task.FromResult(entitiesList.AsEnumerable());
+
+            _dbSet.UpdateRange(entitiesList);
+            return Task.FromResult(entitiesList.AsEnumerable());
+        }
+
+        /// <summary>
+        /// Deletes multiple entities by their primary keys
+        /// </summary>
+        /// <param name="ids">The primary key values</param>
+        /// <returns>Number of entities deleted</returns>
+        public virtual async Task<int> DeleteRangeAsync(IEnumerable<TKey> ids)
+        {
+            if (ids == null)
+                throw new ArgumentNullException(nameof(ids));
+
+            var idsList = ids.ToList();
+            if (!idsList.Any())
+                return 0;
+
+            var entities = new List<TEntity>();
+            foreach (var id in idsList)
+            {
+                var entity = await GetByIdAsync(id);
+                if (entity != null)
+                    entities.Add(entity);
+            }
+
+            if (entities.Any())
+            {
+                _dbSet.RemoveRange(entities);
+                return entities.Count;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Soft deletes an entity by its primary key (marks as deleted)
+        /// </summary>
+        /// <param name="id">The primary key value</param>
+        /// <returns>True if soft deleted, false if not found</returns>
+        public virtual async Task<bool> SoftDeleteAsync(TKey id)
+        {
+            var entity = await GetByIdAsync(id);
+            if (entity == null)
+                return false;
+
+            // Set soft delete properties
+            var propertyInfo = entity.GetType().GetProperty("IsDeleted");
+            if (propertyInfo != null && propertyInfo.PropertyType == typeof(bool))
+            {
+                propertyInfo.SetValue(entity, true);
+            }
+
+            var deletedAtProperty = entity.GetType().GetProperty("DeletedAt");
+            if (deletedAtProperty != null && deletedAtProperty.PropertyType == typeof(DateTime?))
+            {
+                deletedAtProperty.SetValue(entity, DateTime.UtcNow);
+            }
+
+            _dbSet.Update(entity);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks if any entities match the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>True if any entities match, false otherwise</returns>
+        public virtual async Task<bool> AnyAsync(ISpecification<TEntity>? specification)
+        {
+            var query = ApplySpecification(_dbSet.AsQueryable(), specification);
+            return await query.AnyAsync();
+        }
+
+        /// <summary>
+        /// Gets the first entity matching the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>The first entity if found, null otherwise</returns>
+        public virtual async Task<TEntity?> FirstOrDefaultAsync(ISpecification<TEntity>? specification)
+        {
+            var query = ApplySpecification(_dbSet.AsQueryable(), specification);
+            return await query.FirstOrDefaultAsync();
         }
 
         /// <summary>
@@ -130,7 +248,7 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         /// <param name="query">The base query</param>
         /// <param name="specification">The specification to apply</param>
         /// <returns>The modified query</returns>
-        protected virtual IQueryable<TEntity> ApplySpecification(IQueryable<TEntity> query, ISpecification<TEntity> specification)
+        protected virtual IQueryable<TEntity> ApplySpecification(IQueryable<TEntity> query, ISpecification<TEntity>? specification)
         {
             if (specification == null)
                 return query;

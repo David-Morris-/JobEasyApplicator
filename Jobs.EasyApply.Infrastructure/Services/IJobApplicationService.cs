@@ -65,5 +65,12 @@ namespace Jobs.EasyApply.Infrastructure.Services
         /// </summary>
         /// <returns>The number of applied jobs</returns>
         Task<int> GetAppliedJobsCountAsync();
+
+        /// <summary>
+        /// Gets applied jobs filtered by provider
+        /// </summary>
+        /// <param name="provider">The job provider to filter by</param>
+        /// <returns>List of applied jobs for the specified provider</returns>
+        Task<IEnumerable<AppliedJob>> GetAppliedJobsByProviderAsync(JobProvider provider);
     }
 }

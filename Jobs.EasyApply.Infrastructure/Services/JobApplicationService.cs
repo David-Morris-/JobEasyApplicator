@@ -236,5 +236,24 @@ namespace Jobs.EasyApply.Infrastructure.Services
                 return 0;
             }
         }
+
+        /// <summary>
+        /// Gets applied jobs filtered by provider
+        /// </summary>
+        /// <param name="provider">The job provider to filter by</param>
+        /// <returns>List of applied jobs for the specified provider</returns>
+        public async Task<IEnumerable<AppliedJob>> GetAppliedJobsByProviderAsync(JobProvider provider)
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving applied jobs for provider: {Provider}", provider);
+                return await _repository.GetAppliedJobsByProviderAsync(provider);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving applied jobs for provider {Provider}", provider);
+                return new List<AppliedJob>();
+            }
+        }
     }
 }

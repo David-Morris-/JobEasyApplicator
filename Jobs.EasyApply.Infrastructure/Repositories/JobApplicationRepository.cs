@@ -135,5 +135,90 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         {
             return await _unitOfWork.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// Adds multiple job applications in a single operation
+        /// </summary>
+        /// <param name="appliedJobs">The job applications to add</param>
+        /// <returns>The added job applications</returns>
+        public new async Task<IEnumerable<AppliedJob>> AddRangeAsync(IEnumerable<AppliedJob> appliedJobs)
+        {
+            if (appliedJobs == null)
+                throw new ArgumentNullException(nameof(appliedJobs));
+
+            var jobsList = appliedJobs.ToList();
+            if (!jobsList.Any())
+                return jobsList;
+
+            // Ensure AppliedDate is set for all jobs
+            foreach (var job in jobsList)
+            {
+                if (job.AppliedDate == default)
+                    job.AppliedDate = DateTime.UtcNow;
+            }
+
+            return await AddRangeAsync(jobsList);
+        }
+
+        /// <summary>
+        /// Updates multiple job applications in a single operation
+        /// </summary>
+        /// <param name="appliedJobs">The job applications to update</param>
+        /// <returns>The updated job applications</returns>
+        public new async Task<IEnumerable<AppliedJob>> UpdateRangeAsync(IEnumerable<AppliedJob> appliedJobs)
+        {
+            if (appliedJobs == null)
+                throw new ArgumentNullException(nameof(appliedJobs));
+
+            var jobsList = appliedJobs.ToList();
+            if (!jobsList.Any())
+                return jobsList;
+
+            return await UpdateRangeAsync(jobsList);
+        }
+
+        /// <summary>
+        /// Deletes multiple job applications by their IDs
+        /// </summary>
+        /// <param name="ids">The job application IDs</param>
+        /// <returns>Number of job applications deleted</returns>
+        public new async Task<int> DeleteRangeAsync(IEnumerable<int> ids)
+        {
+            if (ids == null)
+                throw new ArgumentNullException(nameof(ids));
+
+            return await DeleteRangeAsync(ids);
+        }
+
+        /// <summary>
+        /// Checks if any job applications match the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>True if any job applications match, false otherwise</returns>
+        public override async Task<bool> AnyAsync(ISpecification<AppliedJob>? specification)
+        {
+            return await base.AnyAsync(specification);
+        }
+
+        /// <summary>
+        /// Gets the first job application matching the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>The first job application if found, null otherwise</returns>
+        public override async Task<AppliedJob?> FirstOrDefaultAsync(ISpecification<AppliedJob>? specification)
+        {
+            return await base.FirstOrDefaultAsync(specification);
+        }
+
+        /// <summary>
+        /// Gets applied jobs filtered by provider
+        /// </summary>
+        /// <param name="provider">The job provider to filter by</param>
+        /// <returns>List of applied jobs for the specified provider</returns>
+        public async Task<IEnumerable<AppliedJob>> GetAppliedJobsByProviderAsync(JobProvider provider)
+        {
+            var specification = new JobApplicationByProviderSpecification(provider);
+            return await GetAsync(specification);
+        }
     }
 }

@@ -6,9 +6,7 @@ namespace Jobs.EasyApply.Common.Models
     {
         LinkedIn,
         Indeed,
-        Glassdoor,
-        CompanyWebsite,
-        Other
+        Dice
     }
 
     public class AppliedJob
@@ -22,5 +20,7 @@ namespace Jobs.EasyApply.Common.Models
         public JobProvider Provider { get; set; } = JobProvider.LinkedIn; // Platform where job was applied
         public DateTime AppliedDate { get; set; }
         public bool Success { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }

@@ -14,5 +14,13 @@ namespace Jobs.EasyApply.Infrastructure.Data
             // Database configuration is handled through dependency injection in the API project
             // No fallback configuration needed here
         }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Global query filter for soft delete
+            modelBuilder.Entity<AppliedJob>().HasQueryFilter(job => !job.IsDeleted);
+        }
     }
 }

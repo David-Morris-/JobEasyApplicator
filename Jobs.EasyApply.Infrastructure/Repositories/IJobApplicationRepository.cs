@@ -53,5 +53,47 @@ namespace Jobs.EasyApply.Infrastructure.Repositories
         /// </summary>
         /// <returns>The total count of applied jobs</returns>
         Task<int> GetAppliedJobsCountAsync();
+
+        /// <summary>
+        /// Adds multiple job applications in a single operation
+        /// </summary>
+        /// <param name="appliedJobs">The job applications to add</param>
+        /// <returns>The added job applications</returns>
+        Task<IEnumerable<AppliedJob>> AddRangeAsync(IEnumerable<AppliedJob> appliedJobs);
+
+        /// <summary>
+        /// Updates multiple job applications in a single operation
+        /// </summary>
+        /// <param name="appliedJobs">The job applications to update</param>
+        /// <returns>The updated job applications</returns>
+        Task<IEnumerable<AppliedJob>> UpdateRangeAsync(IEnumerable<AppliedJob> appliedJobs);
+
+        /// <summary>
+        /// Deletes multiple job applications by their IDs
+        /// </summary>
+        /// <param name="ids">The job application IDs</param>
+        /// <returns>Number of job applications deleted</returns>
+        Task<int> DeleteRangeAsync(IEnumerable<int> ids);
+
+        /// <summary>
+        /// Checks if any job applications match the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>True if any job applications match, false otherwise</returns>
+        Task<bool> AnyAsync(ISpecification<AppliedJob>? specification);
+
+        /// <summary>
+        /// Gets the first job application matching the specification criteria
+        /// </summary>
+        /// <param name="specification">The specification criteria</param>
+        /// <returns>The first job application if found, null otherwise</returns>
+        Task<AppliedJob?> FirstOrDefaultAsync(ISpecification<AppliedJob>? specification);
+
+        /// <summary>
+        /// Gets applied jobs filtered by provider
+        /// </summary>
+        /// <param name="provider">The job provider to filter by</param>
+        /// <returns>List of applied jobs for the specified provider</returns>
+        Task<IEnumerable<AppliedJob>> GetAppliedJobsByProviderAsync(JobProvider provider);
     }
 }
