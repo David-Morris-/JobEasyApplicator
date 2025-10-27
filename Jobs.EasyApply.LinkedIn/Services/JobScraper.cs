@@ -56,6 +56,12 @@ namespace Jobs.EasyApply.LinkedIn.Services
             options.AddExcludedArgument("enable-automation");
             options.AddAdditionalOption("useAutomationExtension", false);
 
+            // Load custom extension to change automation message
+            options.AddArgument("--load-extension=C:\\Users\\david\\Repos\\JobEasyApplicator\\ChromeExtension");
+
+            // Suppress default automation message
+            options.AddArgument("--disable-blink-features=AutomationControlled");
+
             // Run with visible browser for debugging (remove --headless if present)
             // options.AddArgument("--headless"); // Commented out for visible browser
 
@@ -324,7 +330,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
             }
             catch (WebDriverTimeoutException)
             {
-                Log.Warning("No job cards found within timeout, job search may have failed.");
+                Log.Warning("No LinkedIn job cards found within timeout, job search may have failed.");
                 return [];
             }
 
