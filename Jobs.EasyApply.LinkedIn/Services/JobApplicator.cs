@@ -67,23 +67,32 @@ namespace Jobs.EasyApply.LinkedIn.Services
                     // Check for additional questions section before proceeding
                     if (_htmlScraper.HasAdditionalQuestionsModule())
                     {
-                        // Smart detection: Check if questions are not pre-populated
-                        if (_htmlScraper.HasEmptyRequiredFields())
+                        // Check if this is a contact info form that's already pre-populated
+                        if (_htmlScraper.IsContactInfoForm() && (_htmlScraper.AreContactFieldsComplete() || _htmlScraper.AreAdditionalQuestionsPrePopulated()))
                         {
-                            Log.Warning("Additional questions module detected with empty required fields for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
-                            Console.WriteLine($"*** MANUAL INTERVENTION REQUIRED ***");
-                            Console.WriteLine($"Additional questions detected for: {job.Title} at {job.Company}");
-                            Console.WriteLine($"Please fill out the questions in the browser and click Next to continue...");
-                            Console.WriteLine($"Press Enter in this console when you have completed the questions and clicked Next.");
-
-                            // Wait for user to complete the questions and press Enter
-                            Console.ReadLine();
-
-                            Log.Information("User has completed additional questions, continuing with application process");
+                            Log.Information("Contact info form is pre-populated, proceeding automatically", job.Title, job.Company);
                         }
                         else
                         {
-                            Log.Information("Additional questions detected but no empty required fields found for job: {Title} at {Company}. Continuing automatically.", job.Title, job.Company);
+                            // Try to automatically fill common additional questions
+                            if (_htmlScraper.FillAdditionalQuestions())
+                            {
+                                Log.Information("Additional questions filled automatically for job: {Title} at {Company}", job.Title, job.Company);
+                            }
+                            else
+                            {
+                                // Pause for non-fillable questions to allow user review and filling
+                                Log.Warning("Additional questions detected for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
+                                Console.WriteLine($"*** MANUAL INTERVENTION REQUIRED ***");
+                                Console.WriteLine($"Additional questions detected for: {job.Title} at {job.Company}");
+                                Console.WriteLine($"Please review and fill out any questions in the browser and click Next to continue...");
+                                Console.WriteLine($"Press Enter in this console when you have completed the additional questions.");
+
+                                // Wait for user to complete the questions and press Enter
+                                Console.ReadLine();
+
+                                Log.Information("User has completed additional questions, continuing with application process");
+                            }
                         }
                     }
                     else

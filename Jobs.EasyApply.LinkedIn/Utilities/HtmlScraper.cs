@@ -274,7 +274,26 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                 // If no questions module found, assume no pre-populated questions
                 if (questionsModule == null)
                 {
-                    return false;
+                    // Look for h3 with "Additional Questions" to find the module
+                    try
+                    {
+                        var h3Elements = _driver.FindElements(By.CssSelector("h3"));
+                        var additionalQuestionsHeader = h3Elements.FirstOrDefault(h3 => h3.Displayed && h3.Text.Contains("Additional Questions"));
+                        if (additionalQuestionsHeader != null)
+                        {
+                            // Find the parent container of the additional questions
+                            questionsModule = additionalQuestionsHeader.FindElement(By.XPath("../../..")) ?? additionalQuestionsHeader.FindElement(By.XPath("../..")) ?? additionalQuestionsHeader.FindElement(By.XPath(".."));
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        // No additional questions found
+                    }
+
+                    if (questionsModule == null)
+                    {
+                        return false;
+                    }
                 }
 
                 // Check if form fields within the questions module are already filled with answers
@@ -305,6 +324,52 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                         // Continue to next selector
                         continue;
                     }
+                }
+
+                // Additional check: use JavaScript to check if input fields have values that might not be reflected in the DOM
+                try
+                {
+                    var jsExecutor = (IJavaScriptExecutor)_driver;
+                    var inputFields = questionsModule.FindElements(By.CssSelector("input[type='text'], input[type='email'], input[type='tel'], input[type='number'], textarea"));
+                    foreach (var input in inputFields.Where(i => i.Displayed))
+                    {
+                        try
+                        {
+                            var value = jsExecutor.ExecuteScript("return arguments[0].value;", input) as string;
+                            if (!string.IsNullOrWhiteSpace(value) && value.Length > 1)
+                            {
+                                Console.WriteLine($"Found prepopulated input via JS: '{value}'");
+                                return true;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            continue;
+                        }
+                    }
+
+                    // Check radio buttons - see if any are checked via JS
+                    var radioButtons = questionsModule.FindElements(By.CssSelector("input[type='radio']"));
+                    foreach (var radio in radioButtons.Where(r => r.Displayed))
+                    {
+                        try
+                        {
+                            var isChecked = (bool)(jsExecutor.ExecuteScript("return arguments[0].checked;", radio) ?? false);
+                            if (isChecked)
+                            {
+                                Console.WriteLine("Found selected radio button via JS");
+                                return true;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            continue;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking fields via JS: {ex.Message}");
                 }
 
                 return false;
@@ -530,7 +595,7 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         /// <summary>
         /// Check if this is a LinkedIn contact information form
         /// </summary>
-        private bool IsContactInfoForm()
+        public bool IsContactInfoForm()
         {
             try
             {
@@ -627,7 +692,7 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         /// <summary>
         /// Check if all required contact fields are complete
         /// </summary>
-        private bool AreContactFieldsComplete()
+        public bool AreContactFieldsComplete()
         {
             try
             {
@@ -1301,6 +1366,63 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
             }
 
             return validationErrors;
+        }
+
+        /// <summary>
+        /// Try to automatically fill common additional questions like remote work
+        /// </summary>
+        public bool FillAdditionalQuestions()
+        {
+            try
+            {
+                // Try to fill remote work questions
+                if (FillRemoteWorkQuestion()) return true;
+
+                // Add other common questions here in the future
+
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try to fill radio button questions about remote work comfort
+        /// </summary>
+        private bool FillRemoteWorkQuestion()
+        {
+            try
+            {
+                // Find legends containing "remote" and "comfortable"
+                var legends = _driver.FindElements(By.XPath("//legend[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'remote') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'comfortable')]"));
+
+                foreach (var legend in legends.Where(l => l.Displayed))
+                {
+                    try
+                    {
+                        // Find the "Yes" radio button in the same fieldset
+                        var yesButton = legend.FindElement(By.XPath("../following-sibling::div//input[@value='Yes' and @type='radio']"));
+                        if (!yesButton.Selected)
+                        {
+                            yesButton.Click();
+                            Thread.Sleep(500); // Allow time for selection
+                            return true;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }

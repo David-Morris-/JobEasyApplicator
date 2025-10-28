@@ -7,10 +7,11 @@ using Jobs.EasyApply.Dice.Utilities;
 using Jobs.EasyApply.Dice.Services;
 using System;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 namespace Jobs.EasyApply.Dice.Services
 {
-    public class JobScraper : IDisposable
+    public class JobScraper : IJobScraper
     {
         private readonly IWebDriver _driver;
         private readonly string _jobTitle;

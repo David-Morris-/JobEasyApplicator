@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Serilog;
 using Jobs.EasyApply.LinkedIn.Services;
+using Jobs.EasyApply.LinkedIn.Models;
 using Jobs.EasyApply.Common.Models;
+using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 
 namespace Jobs.EasyApply.LinkedIn
@@ -15,24 +17,40 @@ namespace Jobs.EasyApply.LinkedIn
                 .WriteTo.Console()
                 .CreateLogger();
 
-            // Load configuration
+            // Build configuration with user secrets and environment variables
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
                 .AddJsonFile("appsettings.json")
+                .AddUserSecrets<Program>()
+                .AddEnvironmentVariables()
                 .Build();
 
-            //Credentials from config
-            var appSettings = configuration.Get<AppSettings>();
-            if (appSettings?.Credentials == null)
+            // Bind credentials securely
+            var credentials = configuration.GetSection("LinkedInCredentials").Get<LinkedInCredentialsOptions>();
+            if (credentials == null)
             {
-                Log.Error("Failed to load LinkedIn credentials from configuration");
+                Log.Error("LinkedIn credentials not found. Please set credentials using .NET User Secrets or environment variables.");
                 return;
             }
 
-            var jobTitle = args.Length > 0 ? args[0] : appSettings.JobSearchParams.Title;
-            var location = args.Length > 1 ? args[1] : appSettings.JobSearchParams.Location;
+            // Validate credentials
+            try
+            {
+                Validator.ValidateObject(credentials, new ValidationContext(credentials), true);
+            }
+            catch (ValidationException ex)
+            {
+                Log.Error("Credential validation failed: {Error}", ex.Message);
+                return;
+            }
 
-            Log.Information("Applying for jobs with title: {Title}, location: {Location}", jobTitle, location);
+            var searchParams = configuration.GetSection("JobSearchParams").Get<JobSearchParams>() ?? new JobSearchParams();
+
+            var jobTitle = args.Length > 0 ? args[0] : searchParams.Title;
+            var location = args.Length > 1 ? args[1] : searchParams.Location;
+            var maxJobsToApply = searchParams.MaxJobsToApply;
+
+            Log.Information("Applying for jobs with title: {Title}, location: {Location}, max jobs: {MaxJobs}", jobTitle, location, maxJobsToApply);
 
             // Set up HTTP client for API calls
             using var httpClient = new HttpClient();
@@ -47,13 +65,24 @@ namespace Jobs.EasyApply.LinkedIn
             }
             Log.Information("API connectivity confirmed. Proceeding with job search...");
 
-            using var scraper = new JobScraper(jobTitle, location, appSettings.Credentials.Email, appSettings.Credentials.Password);
+            var factory = new LinkedInJobServiceFactory();
+            using var scraper = factory.CreateJobScraper(jobTitle, location, credentials.Email, credentials.Password);
 
             try
             {
-                var jobs = scraper.SearchJobs();
+                var jobs = await scraper.SearchJobsAsync();
+                int appliedCount = 0;
+                int totalProcessed = 0;
                 foreach (var job in jobs)
                 {
+                    if (appliedCount >= maxJobsToApply)
+                    {
+                        Log.Information("Reached maximum jobs to apply ({MaxJobs}), stopping.", maxJobsToApply);
+                        break;
+                    }
+
+                    totalProcessed++;
+
                     if (!string.IsNullOrWhiteSpace(job.Title) && !string.IsNullOrWhiteSpace(job.Company))
                     {
                         if (!await IsJobPreviouslyAppliedAsync(httpClient, job.JobId))
@@ -72,6 +101,7 @@ namespace Jobs.EasyApply.LinkedIn
 
                             await AddJobApplicationAsync(httpClient, appliedJob);
 
+                            appliedCount++;
                             Log.Information("Applied for job - Title: {Title}, Company: {Company}, Url: {Url}, Success: {Success}",
                                 job.Title, job.Company, job.Url, success);
                         }
@@ -85,6 +115,7 @@ namespace Jobs.EasyApply.LinkedIn
                         Log.Warning("Skipping job with incomplete details - Title: '{Title}', Company: '{Company}'", job.Title, job.Company);
                     }
                 }
+                Log.Information("Processed {TotalProcessed} jobs, applied to {AppliedCount} out of {MaxJobs} jobs.", totalProcessed, appliedCount, maxJobsToApply);
             }
             catch (Exception ex)
             {

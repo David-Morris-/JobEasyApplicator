@@ -19,6 +19,7 @@ namespace Jobs.EasyApply.Dice
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
                 .AddJsonFile("appsettings.json")
+                .AddEnvironmentVariables()
                 .Build();
 
             // Credentials from config
@@ -34,6 +35,10 @@ namespace Jobs.EasyApply.Dice
 
             Log.Information("Applying for Dice Easy Apply jobs with title: {Title}, location: {Location}", jobTitle, location);
 
+            // Initialize counters
+            int totalJobsFound = 0;
+            int totalApplied = 0;
+
             // Set up HTTP client for API calls
             using var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri("http://localhost:5070"); // Default API URL
@@ -47,15 +52,19 @@ namespace Jobs.EasyApply.Dice
             }
             Log.Information("API connectivity confirmed. Proceeding with job search...");
 
-            using var scraper = new JobScraper(jobTitle, location, appSettings.Credentials.Email, appSettings.Credentials.Password);
+            var factory = new DiceJobServiceFactory();
+            using var scraper = factory.CreateJobScraper(jobTitle, location, appSettings.Credentials.Email, appSettings.Credentials.Password);
 
             try
             {
                 var jobs = await scraper.SearchJobsAsync();
+                totalJobsFound = jobs.Count();
+
                 foreach (var job in jobs)
                 {
                     if (!string.IsNullOrWhiteSpace(job.Title) && !string.IsNullOrWhiteSpace(job.Company))
                     {
+                        totalApplied++;
                         try
                         {
                             bool success = scraper.ApplyForJob(job);
@@ -94,7 +103,9 @@ namespace Jobs.EasyApply.Dice
                 Log.Error(ex, "Error during job application process");
             }
 
-            Log.Information("Job application process completed.");
+            // Log summary
+            Log.Information("Job application process completed. Total jobs found: {TotalJobsFound}, Total applied for: {TotalApplied}",
+                totalJobsFound, totalApplied);
         }
 
         private static async Task<bool> TestApiConnectionAsync(HttpClient httpClient)

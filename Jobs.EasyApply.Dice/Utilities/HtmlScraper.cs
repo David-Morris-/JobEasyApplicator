@@ -599,5 +599,20 @@ namespace Jobs.EasyApply.Dice.Utilities
                 return false;
             }
         }
+
+        // Check if page contains "Application Submitted" text
+        public bool HasApplicationSubmittedText()
+        {
+            try
+            {
+                var pageText = _driver.FindElement(By.TagName("body")).Text;
+                return pageText.Contains("Application Submitted", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Error checking for Application Submitted text");
+                return false;
+            }
+        }
     }
 }

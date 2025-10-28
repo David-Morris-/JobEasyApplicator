@@ -59,6 +59,13 @@ namespace Jobs.EasyApply.Dice.Services
                     return false;
                 }
 
+                // Check if application has already been submitted
+                if (_htmlScraper.HasApplicationSubmittedText())
+                {
+                    Log.Information("Application already submitted for job: {Title} at {Company}. Skipping.", job.Title, job.Company);
+                    return false;
+                }
+
                 // Wait for the Apply button to appear on the job details page
                 var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
                 var applyButton = wait.Until(driver => _htmlScraper.FindApplyButton(job.JobId));

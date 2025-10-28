@@ -5,10 +5,11 @@ using Serilog;
 using Jobs.EasyApply.Common.Models;
 using Jobs.EasyApply.LinkedIn.Utilities;
 using System;
+using System.Threading.Tasks;
 
 namespace Jobs.EasyApply.LinkedIn.Services
 {
-    public class JobScraper : IDisposable
+    public class JobScraper : IJobScraper
     {
         private readonly IWebDriver _driver;
         private readonly string _jobTitle;
@@ -17,8 +18,9 @@ namespace Jobs.EasyApply.LinkedIn.Services
         private readonly string _password;
         private readonly HtmlScraper _htmlScraper;
         private readonly JobApplicator _jobApplicator;
+        private readonly int _maxJobsToApply;
 
-        public JobScraper(string jobTitle, string location, string email, string password)
+        public JobScraper(string jobTitle, string location, string email, string password, int maxJobsToApply = 50)
         {
             _jobTitle = jobTitle;
             _location = location;
@@ -94,7 +96,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
             }
         }
 
-        public List<JobListing> SearchJobs()
+        public async Task<List<JobListing>> SearchJobsAsync()
         {
             Log.Information("Starting job search for {Title} in {Location}", _jobTitle, _location);
 
@@ -320,9 +322,8 @@ namespace Jobs.EasyApply.LinkedIn.Services
                 return [];
             }
 
-            //f_AL=true - filter for easy apply jobs
+            // Navigate to job search page with filters
             _driver.Navigate().GoToUrl($"https://www.linkedin.com/jobs/search/?f_AL=true&keywords={Uri.EscapeDataString(_jobTitle)}&location={Uri.EscapeDataString(_location)}");
-
             // Wait for jobs to load
             try
             {
@@ -335,11 +336,11 @@ namespace Jobs.EasyApply.LinkedIn.Services
             }
 
             var jobs = new List<JobListing>();
-            var previousJobCount = 0;
-            var maxIterations = 20; // Maximum number of scroll attempts to prevent infinite loops
+            var processedCardCount = 0;
+            var maxIterations = 50; // Maximum number of scroll attempts to prevent infinite loops
             var iterationCount = 0;
 
-            // Continue loading more jobs until no new jobs are found or max iterations reached
+            // Continue loading more jobs until no new jobs are found, max iterations reached, or enough new jobs collected
             while (iterationCount < maxIterations)
             {
                 iterationCount++;
@@ -348,8 +349,8 @@ namespace Jobs.EasyApply.LinkedIn.Services
                 Log.Information("Found {Count} job cards on iteration {Iteration}", jobCards.Count, iterationCount);
 
                 // Process new jobs that haven't been processed yet
-                var newJobsFound = false;
-                foreach (var card in jobCards.Skip(previousJobCount))
+                var newJobsFoundInIteration = false;
+                foreach (var card in jobCards.Skip(processedCardCount))
                 {
                     try
                     {
@@ -365,19 +366,40 @@ namespace Jobs.EasyApply.LinkedIn.Services
                         // Check if job was previously applied for
                         var previouslyApplied = innerHtml != null && innerHtml.Contains("applied", StringComparison.OrdinalIgnoreCase);
 
-                        jobs.Add(new JobListing { Title = title, Company = company, JobId = jobId, Url = url, Provider = JobProvider.LinkedIn, PreviouslyApplied = previouslyApplied });
-                        newJobsFound = true;
+                        // Check if job has Easy Apply option
+                        var hasEasyApply = innerHtml != null && innerHtml.Contains("Easy Apply", StringComparison.OrdinalIgnoreCase);
+
+                        if (previouslyApplied)
+                        {
+                            Log.Information("Skipping previously applied job: {Title} at {Company}", title, company);
+                        }
+                        else if (!hasEasyApply)
+                        {
+                            Log.Information("Skipping job without Easy Apply: {Title} at {Company}", title, company);
+                        }
+                        else
+                        {
+                            Log.Information("New Easy Apply job found: {Title} at {Company}", title, company);
+                            jobs.Add(new JobListing { Title = title, Company = company, JobId = jobId, Url = url, Provider = JobProvider.LinkedIn, PreviouslyApplied = previouslyApplied });
+                            newJobsFoundInIteration = true;
+                        }
+
                     }
                     catch (NoSuchElementException ex)
                     {
                         Log.Warning("Skipping job card due to missing element: {Message}", ex.Message);
                     }
+                    catch (StaleElementReferenceException ex)
+                    {
+                        Log.Warning("Skipping job card due to stale element: {Message}", ex.Message);
+                    }
                 }
 
-                previousJobCount = jobCards.Count;
+                // Update the count of processed cards
+                processedCardCount = jobCards.Count;
 
                 // If no new jobs were found in this iteration, we've likely reached the end
-                if (!newJobsFound)
+                if (!newJobsFoundInIteration)
                 {
                     Log.Information("No new jobs found in iteration {Iteration}, stopping search", iterationCount);
                     break;
@@ -395,7 +417,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
 
                         // Check if more jobs have loaded
                         var currentJobCount = _driver.FindElements(By.CssSelector("div[data-job-id]")).Count;
-                        if (currentJobCount <= previousJobCount)
+                        if (currentJobCount <= processedCardCount)
                         {
                             Log.Information("No additional jobs loaded after scroll, stopping search");
                             break;
@@ -416,7 +438,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
                 Thread.Sleep(1000);
             }
 
-            Log.Information("Job search completed. Found {Count} total jobs after {Iterations} iterations", jobs.Count, iterationCount);
+            Log.Information("Job search completed. Found {jobs.Count} jobs after {Iterations} iterations", jobs.Count, iterationCount);
             return jobs;
         }
 
