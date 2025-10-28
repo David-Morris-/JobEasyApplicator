@@ -189,26 +189,25 @@ namespace Jobs.EasyApply.Dice.Services
             }
 
             var jobs = new List<JobListing>();
-            var previousJobCount = 0;
-            var maxIterations = 20; // Maximum number of scroll attempts to prevent infinite loops
-            var iterationCount = 0;
+            var maxPages = 20; // Maximum number of pages to prevent infinite loops
+            var pageCount = 0;
 
-            // Continue loading more jobs until no new jobs are found or max iterations reached
-            while (iterationCount < maxIterations)
+            // Continue pagination until no Next button or max pages reached
+            while (pageCount < maxPages)
             {
-                iterationCount++;
+                pageCount++;
                 var jobCards = _driver.FindElements(By.CssSelector(usedSelector));
 
-                Log.Information("Found {Count} job cards on iteration {Iteration} using selector: {Selector}", jobCards.Count, iterationCount, usedSelector);
+                Log.Information("Found {Count} job cards on page {Page} using selector: {Selector}", jobCards.Count, pageCount, usedSelector);
 
-                // Process new jobs that haven't been processed yet
+                // Process all jobs on this page
                 var newJobsFound = false;
-                foreach (var card in jobCards.Skip(previousJobCount))
+                foreach (var card in jobCards)
                 {
                     try
                     {
                         // Debug the first few job cards to understand their structure
-                        if (previousJobCount == 0 && jobs.Count < 3)
+                        if (pageCount == 1 && jobs.Count < 3)
                         {
                             _htmlScraper.DebugJobCardStructure(card);
                         }
@@ -281,10 +280,11 @@ namespace Jobs.EasyApply.Dice.Services
                             continue;
                         }
 
-                        // Check for "Application Submitted" text
-                        if (card.Text.Contains("Application Submitted", StringComparison.OrdinalIgnoreCase))
+                        // Check for "Applied" or "Application Submitted" text
+                        if (card.Text.Contains("Applied", StringComparison.OrdinalIgnoreCase) ||
+                            card.Text.Contains("Application Submitted", StringComparison.OrdinalIgnoreCase))
                         {
-                            Log.Information("Skipping job with 'Application Submitted' text: {Title} at {Company}", title, company);
+                            Log.Information("Skipping job with 'Applied' or 'Application Submitted' text: {Title} at {Company}", title, company);
                             continue;
                         }
 
@@ -319,49 +319,66 @@ namespace Jobs.EasyApply.Dice.Services
                     }
                 }
 
-                previousJobCount = jobCards.Count;
-
-                // If no new jobs were found in this iteration, we've likely reached the end
-                if (!newJobsFound)
-                {
-                    Log.Information("No new jobs found in iteration {Iteration}, stopping search", iterationCount);
-                    break;
-                }
-
-                // Scroll down to load more jobs (Dice uses infinite scroll)
+                // Try to dismiss any overlay banner first
                 try
                 {
-                    var lastJobCard = jobCards.LastOrDefault();
-                    if (lastJobCard != null)
+                    var dismissButton = _driver.FindElement(By.CssSelector("[data-testid='recommended-jobs-banner-close-btn']"));
+                    if (dismissButton.Displayed && dismissButton.Enabled)
                     {
-                        // Scroll to the last job card to trigger loading of more jobs
-                        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView(true);", lastJobCard);
-                        Thread.Sleep(2000); // Wait for potential new jobs to load
-
-                        // Check if more jobs have loaded using the same selector
-                        var currentJobCount = _driver.FindElements(By.CssSelector(usedSelector)).Count;
-                        if (currentJobCount <= previousJobCount)
-                        {
-                            Log.Information("No additional jobs loaded after scroll, stopping search");
-                            break;
-                        }
+                        Log.Information("Dismissing recommended jobs banner");
+                        dismissButton.Click();
+                        Thread.Sleep(1000);
                     }
-                    else
-                    {
-                        break;
-                    }
+                }
+                catch (NoSuchElementException)
+                {
+                    // No banner to dismiss, continue
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning("Error during scroll operation: {Message}", ex.Message);
+                    Log.Warning("Error dismissing banner: {Message}", ex.Message);
+                }
+
+                // Look for the Next button in pagination nav
+                try
+                {
+                    var nextButton = _driver.FindElement(By.CssSelector("nav[role='navigation'][aria-label='Pagination'] span[aria-label='Next'][data-react-aria-pressable='true']"));
+                    if (nextButton.Displayed && nextButton.Enabled)
+                    {
+                        // Scroll to the Next button to ensure it's visible
+                        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView({block: 'center'});", nextButton);
+                        Thread.Sleep(1000);
+
+                        Log.Information("Clicking Next button for page {Page}", pageCount);
+                        nextButton.Click();
+                        Thread.Sleep(3000); // Wait for page to load
+
+                        // Wait for jobs to load on new page
+                        var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
+                        wait.Until(d => d.FindElements(By.CssSelector(usedSelector)).Count > 0);
+                    }
+                    else
+                    {
+                        Log.Information("Next button not found or not clickable on page {Page}, stopping pagination", pageCount);
+                        break;
+                    }
+                }
+                catch (NoSuchElementException)
+                {
+                    Log.Information("Next button not found on page {Page}, stopping pagination", pageCount);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Error during pagination on page {Page}: {Message}", pageCount, ex.Message);
                     break;
                 }
 
-                // Add a small delay between iterations to be respectful to Dice's servers
+                // Add a small delay between pages to be respectful to Dice's servers
                 Thread.Sleep(1000);
             }
 
-            Log.Information("Job search completed. Found {Count} total jobs after {Iterations} iterations", jobs.Count, iterationCount);
+            Log.Information("Job search completed. Found {Count} total jobs after {Pages} pages", jobs.Count, pageCount);
             return jobs;
         }
 
