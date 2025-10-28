@@ -60,17 +60,18 @@ public enum JobProvider
 
 ## 🚀 Features
 
-- **Automated Job Search**: Searches LinkedIn for jobs based on configurable parameters
-- **Easy Apply Automation**: Automatically applies to jobs with LinkedIn's "Easy Apply" feature
-- **Enhanced Contact Form Detection**: Intelligently detects and handles pre-filled contact information forms
+- **Multi-Platform Automation**: Supports both LinkedIn and Dice.com job platforms
+- **Automated Job Search**: Searches multiple job platforms for positions based on configurable parameters
+- **Easy Apply Automation**: Automatically applies to jobs with platform-specific "Easy Apply" features
+- **Platform-Specific Intelligence**: Advanced LinkedIn contact form detection and Dice Easy Apply filtering
 - **Smart Form Field Analysis**: Automatically identifies when forms are complete vs requiring manual input
 - **API Connectivity Validation**: Tests API connectivity before starting job search to ensure proper data flow
-- **Duplicate Prevention**: Tracks applied jobs to avoid re-applying
-- **Configurable Search Parameters**: Customizable job titles, locations, and credentials
+- **Duplicate Prevention**: Tracks applied jobs across platforms to avoid re-applying
+- **Configurable Search Parameters**: Customizable job titles, locations, and credentials per platform
 - **Comprehensive Logging**: Detailed logging using Serilog for monitoring and debugging
-- **Database Integration**: SQLite database for tracking application history
+- **Database Integration**: SQLite database for tracking application history across platforms
 - **Clean Architecture**: Well-organized code structure following .NET best practices
-- **REST API**: Provides endpoints to retrieve applied jobs and job count
+- **REST API**: Provides endpoints to retrieve applied jobs and statistics by platform
 - **Swagger UI**: Interactive API documentation and testing interface
 
 ## 🔍 Enhanced Contact Form Detection
@@ -93,7 +94,35 @@ The application includes advanced form field detection that intelligently handle
 - **Multiple Selectors**: Employs various CSS selectors and detection strategies
 - **Field Value Analysis**: Checks multiple sources for field values (value, text, innerText, innerHTML)
 - **LinkedIn-Specific Logic**: Handles LinkedIn's unique form behaviors and placeholder patterns
-- **Debugging Support**: Provides detailed console output for troubleshooting form detection issues
+  - **Debugging Support**: Provides detailed console output for troubleshooting form detection issues
+
+## 🎯 Dice Easy Apply Automation
+
+The application includes advanced automation for Dice.com's Easy Apply jobs, providing specialized filtering and processing for Dice's platform:
+
+### Key Capabilities
+- **Easy Apply Filtering**: Automatically filters job results to only include Dice Easy Apply jobs
+- **Platform-Specific Intelligence**: Uses Dice-specific selectors and detection strategies
+- **Multi-Step Form Handling**: Manages complex application workflows on Dice.com
+- **Anti-Detection Measures**: Includes stealth techniques for reliable platform interaction
+
+### Easy Apply Detection Algorithm
+- **Badge Recognition**: Identifies Easy Apply indicators (badges, CSS classes, text content)
+- **Element Analysis**: Scans job listings for `data-cy="easy-apply-badge"` and similar markers
+- **Content Filtering**: Excludes non-Easy Apply jobs from processing queue
+- **Validation Logic**: Double-checks job listings meet Easy Apply criteria
+
+### Benefits
+- **Targeted Automation**: Focuses exclusively on jobs that can be applied automatically
+- **Higher Success Rates**: Dice Easy Apply jobs typically have streamlined application processes
+- **Reduced Manual Work**: Minimizes jobs requiring human intervention
+- **Platform Optimization**: Fine-tuned for Dice.com's specific UI and workflows
+
+### Technical Architecture
+- **Factory Pattern**: `DiceJobServiceFactory` creates platform-specific service instances
+- **Interface Segregation**: Implements `IJobScraper` for consistent cross-platform behavior
+- **Strategy Pattern**: Dice-specific strategies for job searching and application
+- **Error Resilience**: Continues processing other jobs if individual Dice applications fail
 
 ## 🔗 API Connectivity Validation
 
@@ -354,14 +383,12 @@ These patterns work together to create a robust, flexible, and maintainable code
 
 ## ⚙️ Configuration
 
-The application uses `appsettings.json` for all configuration. Here's a detailed breakdown:
+The application uses `appsettings.json` for job search parameters and secure credential management for sensitive data. Here's a detailed breakdown:
+
+### Job Search Configuration (appsettings.json)
 
 ```json
 {
-  "Credentials": {
-    "Email": "your-linkedin-email@example.com",
-    "Password": "your-linkedin-password"
-  },
   "JobSearchParams": {
     "Title": ".NET Developer",
     "Location": "Remote",
@@ -374,22 +401,77 @@ The application uses `appsettings.json` for all configuration. Here's a detailed
 }
 ```
 
-### Configuration Sections
-
-#### Credentials
-- **Email**: Your LinkedIn login email address
-- **Password**: Your LinkedIn password (⚠️ Consider using environment variables for production)
+#### Configuration Sections
 
 #### JobSearchParams
 - **Title**: Default job title to search for (can be overridden via command line)
 - **Location**: Default job location to search in (can be overridden via command line)
 
+### Secure Credential Management
+
+Credentials are now managed securely without storing them in configuration files to prevent accidental commits to version control.
+
+#### Development Environment (.NET User Secrets)
+
+For development, the application uses .NET User Secrets to store credentials locally and securely:
+
+1. **Initialize User Secrets** (automatically done in project setup):
+   ```bash
+   dotnet user-secrets init --project Jobs.EasyApply.LinkedIn
+   ```
+
+2. **Set LinkedIn Credentials**:
+   ```bash
+   dotnet user-secrets set LinkedInCredentials:Email "your-email@example.com" --project Jobs.EasyApply.LinkedIn
+   dotnet user-secrets set LinkedInCredentials:Password "your-password" --project Jobs.EasyApply.LinkedIn
+   ```
+
+3. **Manage Secrets**:
+   ```bash
+   # List all secrets
+   dotnet user-secrets list --project Jobs.EasyApply.LinkedIn
+
+   # Remove a secret
+   dotnet user-secrets remove LinkedInCredentials:Password --project Jobs.EasyApply.LinkedIn
+
+   # Clear all secrets
+   dotnet user-secrets clear --project Jobs.EasyApply.LinkedIn
+   ```
+
+#### Production Environment (Environment Variables)
+
+For production deployments, use environment variables:
+
+```bash
+# Linux/macOS
+export LinkedInCredentials__Email="your-email@example.com"
+export LinkedInCredentials__Password="your-password"
+
+# Windows PowerShell
+$env:LinkedInCredentials__Email="your-email@example.com"
+$env:LinkedInCredentials__Password="your-password"
+
+# Windows Command Prompt
+set LinkedInCredentials__Email=your-email@example.com
+set LinkedInCredentials__Password=your-password
+```
+
+#### Credential Validation
+
+The application includes built-in credential validation on startup:
+- **Required Fields**: Both email and password must be provided
+- **Email Format**: Validates proper email address format
+- **Secure Loading**: Credentials are loaded only through the secure IOptions pattern
+- **Error Handling**: Clear error messages guide users to proper credential setup
+
 ### Configuration Best Practices
 
-1. **Never commit passwords** to version control
-2. **Use environment variables** for sensitive data in production
-3. **Validate configuration** on application startup
-4. **Provide sensible defaults** for optional parameters
+1. **Never commit credentials** to version control or configuration files
+2. **Use .NET User Secrets** for development environment security
+3. **Set environment variables** for production deployments
+4. **Validate configuration** on application startup (automatic)
+5. **Rotate credentials regularly** in production environments
+6. **Use strong, unique passwords** for LinkedIn accounts
 
 ## 📋 Parameters & Usage
 
@@ -431,7 +513,7 @@ dotnet run "" "San Francisco"
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd LinkedIn.Jobs.EasyApply
+   cd JobEasyApplicator
    ```
 
 2. **Restore dependencies**:
@@ -439,14 +521,24 @@ dotnet run "" "San Francisco"
    dotnet restore
    ```
 
-3. **Configure credentials** in `appsettings.json`:
-   ```json
-   {
-     "Credentials": {
-       "Email": "your-linkedin-email@example.com",
-       "Password": "your-linkedin-password"
-     }
-   }
+3. **Configure credentials securely** (choose one method based on your environment):
+
+   **For Development (using .NET User Secrets):**
+   ```bash
+   # Set LinkedIn credentials
+   dotnet user-secrets set LinkedInCredentials:Email "your-email@example.com" --project Jobs.EasyApply.LinkedIn
+   dotnet user-secrets set LinkedInCredentials:Password "your-password" --project Jobs.EasyApply.LinkedIn
+   ```
+
+   **For Production (using Environment Variables):**
+   ```bash
+   # Linux/macOS
+   export LinkedInCredentials__Email="your-email@example.com"
+   export LinkedInCredentials__Password="your-password"
+
+   # Windows PowerShell
+   $env:LinkedInCredentials__Email="your-email@example.com"
+   $env:LinkedInCredentials__Password="your-password"
    ```
 
 4. **Build the application**:
@@ -603,10 +695,14 @@ The application supports the following database operations through the repositor
 ### Common Issues
 
 1. **ChromeDriver not found**: Ensure Chrome browser is installed
-2. **LinkedIn login fails**: Verify credentials in `appsettings.json`
-3. **No jobs found**: Check search parameters and LinkedIn filters
-4. **Element not found**: LinkedIn may have updated their HTML structure
-5. **Contact form detection issues**: The application may incorrectly pause for manual input on pre-filled forms
+2. **LinkedIn login fails**: Verify credentials using the secure credential management:
+   - For development: Check with `dotnet user-secrets list --project Jobs.EasyApply.LinkedIn`
+   - For production: Verify environment variables are set correctly
+   - Ensure both email and password are properly configured and match LinkedIn account
+3. **Credential validation error**: The application will display specific error messages if credentials are missing or invalid format
+4. **No jobs found**: Check search parameters and LinkedIn filters
+5. **Element not found**: LinkedIn may have updated their HTML structure
+6. **Contact form detection issues**: The application may incorrectly pause for manual input on pre-filled forms
 
 ### Enhanced Contact Form Detection Issues
 
