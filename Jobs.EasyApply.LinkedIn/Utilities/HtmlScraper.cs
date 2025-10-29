@@ -1097,9 +1097,58 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                     }
                 }
 
-                Console.WriteLine($"Contact fields status - Email: {emailFilled}, Phone: {phoneFilled}, Country: {countryFilled}");
+                // Check location field - this appears to be required in recent LinkedIn forms
+                var locationSelectors = new[]
+                {
+                    // Most specific LinkedIn selectors first for location field
+                    "input[data-test-form-element='location'][required]",
+                    "input[data-test-form-element='location']",
+                    "input[name*='location'][required]",
+                    "input[name*='location']",
+                    "input[aria-label*='location'][required]",
+                    "input[aria-label*='location']",
+                    "input[class*='location'][required]",
+                    "input[class*='location']",
+                    "input[id*='location'][required]",
+                    "input[id*='location']",
+                    // More general selectors
+                    "input[required][placeholder*='location']",
+                    "input[required][placeholder*='city']"
+                };
 
-                return emailFilled && phoneFilled && countryFilled;
+                bool locationFilled = false;
+                foreach (var selector in locationSelectors)
+                {
+                    try
+                    {
+                        var locationFields = _driver.FindElements(By.CssSelector(selector));
+                        var visibleLocationFields = locationFields.Where(e => e.Displayed);
+                        if (visibleLocationFields.Any())
+                        {
+                            locationFilled = visibleLocationFields.Any(e => !IsFieldActuallyEmpty(e));
+                            if (locationFilled)
+                            {
+                                Console.WriteLine($"Location field detected as filled using selector: {selector}");
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // No location field found, assume it's not required for this form
+                            locationFilled = true;
+                            Console.WriteLine("No location field found, assuming not required");
+                            break;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                Console.WriteLine($"Contact fields status - Email: {emailFilled}, Phone: {phoneFilled}, Country: {countryFilled}, Location: {locationFilled}");
+
+                return emailFilled && phoneFilled && countryFilled && locationFilled;
             }
             catch (Exception ex)
             {
@@ -1446,8 +1495,9 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                                     string siblingText = sibling.Text ?? "";
                                     string siblingClass = sibling.GetAttribute("class") ?? "";
 
-                                    // Look for siblings that might contain the actual value
-                                    if (siblingClass.Contains("value") || siblingClass.Contains("text") || siblingClass.Contains("display"))
+                                    // Look for siblings that might contain the actual value, but exclude labels
+                                    if ((siblingClass.Contains("value") || siblingClass.Contains("text") || siblingClass.Contains("display")) &&
+                                        !siblingClass.Contains("label"))
                                     {
                                         if (!string.IsNullOrWhiteSpace(siblingText) &&
                                             (siblingText.All(char.IsDigit) || siblingText.Length > 1)) // Likely a real value
@@ -1637,6 +1687,9 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                 // Try to fill remote work questions
                 if (FillRemoteWorkQuestion()) return true;
 
+                // Try to fill education questions with Bachelor's Degree
+                if (FillEducationQuestion("Bachelor's Degree")) return true;
+
                 // Add other common questions here in the future
 
                 return false;
@@ -1656,6 +1709,43 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
             {
                 // Find legends containing "remote" and "comfortable"
                 var legends = _driver.FindElements(By.XPath("//legend[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'remote') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'comfortable')]"));
+
+                foreach (var legend in legends.Where(l => l.Displayed))
+                {
+                    try
+                    {
+                        // Find the "Yes" radio button in the same fieldset
+                        var yesButton = legend.FindElement(By.XPath("../following-sibling::div//input[@value='Yes' and @type='radio']"));
+                        if (!yesButton.Selected)
+                        {
+                            yesButton.Click();
+                            Thread.Sleep(500); // Allow time for selection
+                            return true;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try to fill radio button questions about education degree completion
+        /// </summary>
+        private bool FillEducationQuestion(string degreeName)
+        {
+            try
+            {
+                // Find legends containing education degree questions
+                var legends = _driver.FindElements(By.XPath($"//legend[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{degreeName.ToLower()}')]"));
 
                 foreach (var legend in legends.Where(l => l.Displayed))
                 {

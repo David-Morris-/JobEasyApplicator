@@ -62,7 +62,7 @@ namespace Jobs.EasyApply.LinkedIn.Services
                         // Check if this is a contact info form that's already pre-populated
                         if (_htmlScraper.IsContactInfoForm() && (_htmlScraper.AreContactFieldsComplete() || _htmlScraper.AreAdditionalQuestionsPrePopulated()))
                         {
-                            Log.Information("Contact info form is pre-populated, proceeding automatically", job.Title, job.Company);
+                            Log.Information("Contact info form is pre-populated, proceeding automatically");
                         }
                         else
                         {
@@ -71,19 +71,25 @@ namespace Jobs.EasyApply.LinkedIn.Services
                             {
                                 Log.Information("Additional questions filled automatically for job: {Title} at {Company}", job.Title, job.Company);
                             }
-                            else
+                            // Check if there are any required fields that need to be filled manually
+                            else if (_htmlScraper.HasEmptyRequiredFields())
                             {
-                                // Pause for non-fillable questions to allow user review and filling
-                                Log.Warning("Additional questions detected for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
+                                // Pause for required questions to allow user review and filling
+                                Log.Warning("Required fields detected for job: {Title} at {Company}. Pausing for manual input.", job.Title, job.Company);
                                 Console.WriteLine($"*** MANUAL INTERVENTION REQUIRED ***");
-                                Console.WriteLine($"Additional questions detected for: {job.Title} at {job.Company}");
-                                Console.WriteLine($"Please review and fill out any questions in the browser and click Next to continue...");
-                                Console.WriteLine($"Press Enter in this console when you have completed the additional questions.");
+                                Console.WriteLine($"Required fields detected for: {job.Title} at {job.Company}");
+                                Console.WriteLine($"Please review and fill out any required fields in the browser and click Next to continue...");
+                                Console.WriteLine($"Press Enter in this console when you have completed the required fields.");
 
                                 // Wait for user to complete the questions and press Enter
                                 Console.ReadLine();
 
-                                Log.Information("User has completed additional questions, continuing with application process");
+                                Log.Information("User has completed required fields, continuing with application process");
+                            }
+                            else
+                            {
+                                // No required fields, all fields are optional, proceed automatically
+                                Log.Information("All fields optional in additional questions for job: {Title} at {Company}, proceeding automatically", job.Title, job.Company);
                             }
                         }
                     }

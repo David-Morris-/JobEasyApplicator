@@ -17,3 +17,6 @@ project.fragment.lock.json
 
 # Application settings (contains sensitive information)
 Jobs.EasyApply/appsettings.json
+
+# PowerShell script with credentials
+SetLinkedInCreds.ps1
