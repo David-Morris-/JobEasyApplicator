@@ -11,7 +11,55 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         {
             try
             {
-                return _driver.FindElement(By.CssSelector("button[data-easy-apply-next-button]"));
+                // Try CSS selectors first
+                var cssSelectors = new[]
+                {
+                    "button[data-easy-apply-next-button]",
+                    "button[data-live-test-easy-apply-next-button]",
+                    "button[aria-label*='Next']",
+                    "button[data-control-name='continue']"
+                };
+
+                foreach (var selector in cssSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.CssSelector(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Try XPath for text-based finding
+                var xpathSelectors = new[]
+                {
+                    "//button[contains(text(), 'Next')]",
+                    "//button[contains(text(), 'Continue')]"
+                };
+
+                foreach (var selector in xpathSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.XPath(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch (NoSuchElementException)
             {
@@ -24,7 +72,55 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         {
             try
             {
-                return _driver.FindElement(By.CssSelector("button[data-live-test-easy-apply-review-button]"));
+                // Try CSS selectors first
+                var cssSelectors = new[]
+                {
+                    "button[data-live-test-easy-apply-review-button]",
+                    "button[data-easy-apply-review-button]",
+                    "button[aria-label*='Review']",
+                    "button[data-control-name='review']"
+                };
+
+                foreach (var selector in cssSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.CssSelector(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Try XPath for text-based finding
+                var xpathSelectors = new[]
+                {
+                    "//button[contains(text(), 'Review')]",
+                    "//button[contains(text(), 'Review application')]"
+                };
+
+                foreach (var selector in xpathSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.XPath(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch (NoSuchElementException)
             {
@@ -37,7 +133,56 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         {
             try
             {
-                return _driver.FindElement(By.CssSelector("button[data-live-test-easy-apply-submit-button]"));
+                // Try CSS selectors first
+                var cssSelectors = new[]
+                {
+                    "button[data-live-test-easy-apply-submit-button]",
+                    "button[data-easy-apply-submit-button]",
+                    "button[aria-label*='Submit']",
+                    "button[data-control-name='submit']",
+                    "button[type='submit']"
+                };
+
+                foreach (var selector in cssSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.CssSelector(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Try XPath for text-based finding
+                var xpathSelectors = new[]
+                {
+                    "//button[contains(text(), 'Submit')]",
+                    "//button[contains(text(), 'Submit application')]"
+                };
+
+                foreach (var selector in xpathSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.XPath(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch (NoSuchElementException)
             {
@@ -156,7 +301,34 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
         {
             try
             {
-                return _driver.FindElement(By.CssSelector($"div[data-job-id='{jobId}']"));
+                // Try multiple selectors for job cards
+                var selectors = new[]
+                {
+                    $"div[data-job-id='{jobId}']",
+                    $"article[data-job-id='{jobId}']",
+                    $"li[data-job-id='{jobId}']",
+                    $"div[data-urn*='{jobId}']",
+                    $"div[id*='{jobId}']",
+                    $"div[data-entity-urn*='{jobId}']"
+                };
+
+                foreach (var selector in selectors)
+                {
+                    try
+                    {
+                        var card = _driver.FindElement(By.CssSelector(selector));
+                        if (card.Displayed)
+                        {
+                            return card;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch (NoSuchElementException)
             {
@@ -164,11 +336,98 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
             }
         }
 
-        public IWebElement? FindEasyApplyButton(string jobId)
+        public IWebElement? FindEasyApplyButton(string jobId = "")
         {
             try
             {
-                return _driver.FindElement(By.CssSelector($"button.jobs-apply-button[data-job-id='{jobId}']"));
+                // Try multiple selectors for Easy Apply button on the job view page
+                var cssSelectors = new[]
+                {
+                    // Job-specific selectors (if jobId is provided)
+                    !string.IsNullOrEmpty(jobId) ? $"button.jobs-apply-button[data-job-id='{jobId}']" : null,
+                    !string.IsNullOrEmpty(jobId) ? $"button[data-job-id='{jobId}']" : null,
+                    !string.IsNullOrEmpty(jobId) ? $"a[data-job-id='{jobId}']" : null,
+                    !string.IsNullOrEmpty(jobId) ? $"div[data-job-id='{jobId}'] button" : null,
+
+                    // General Easy Apply button selectors for job view page
+                    "button.jobs-apply-button",
+                    "button[data-control-name='job_easy_apply_button']",
+                    "button.jobs-s-apply-button",
+                    "button[aria-label*='Easy Apply']",
+                    "a[aria-label*='Easy Apply']",
+                    // Additional selectors based on LinkedIn's current structure
+                    "button[data-easy-apply='true']",
+                    "button.artdeco-button[data-control-name='easy_apply_button']",
+                    "div.jobs-easy-apply-footer button",
+                    "button[data-test-id='job-easy-apply']",
+                    "button[class*='jobs-apply-button']",
+                    "a[class*='jobs-apply-button']",
+                    "button[class*='easy-apply-button']",
+                    "button[data-job-id]",
+                    // Generic button with any job-related attribute
+                    "button[data-entity-urn*='jobPosting']",
+
+                    // Additional modern LinkedIn selectors
+                    "button[data-live-test-easy-apply='']",
+                    "button[data-live-test-job-apply='']",
+                    "button[data-live-test-easy-apply-button]",
+                    "span[aria-label*='Easy Apply']",
+                    "div[aria-label*='Easy Apply']",
+                    "span[class*='jobs-apply-button']",
+                    "div[class*='jobs-apply-button']",
+                    "span[class*='easy-apply-button']",
+                    "div[class*='easy-apply-button']",
+                    "button[data-control-name='easy_apply_button']",
+                    "a[data-control-name='easy_apply_button']",
+                    "span[data-control-name='easy_apply_button']",
+                    "div[data-control-name='easy_apply_button']"
+                }.Where(s => s != null).ToArray();
+
+                foreach (var selector in cssSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.CssSelector(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Try XPath for text-based finding
+                var xpathSelectors = new[]
+                {
+                    "//button[contains(text(), 'Easy Apply')]",
+                    "//a[contains(text(), 'Easy Apply')]",
+                    "//span[contains(text(), 'Easy Apply')]",
+                    "//div[contains(text(), 'Easy Apply')]",
+
+                    // Job-specific XPath (if jobId is provided)
+                    !string.IsNullOrEmpty(jobId) ? $"//*[@data-job-id='{jobId}' and contains(text(), 'Easy Apply')]" : null
+                }.Where(s => s != null).ToArray();
+
+                foreach (var selector in xpathSelectors)
+                {
+                    try
+                    {
+                        var button = _driver.FindElement(By.XPath(selector));
+                        if (button.Displayed && button.Enabled)
+                        {
+                            return button;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch (NoSuchElementException)
             {

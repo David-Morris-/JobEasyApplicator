@@ -32,19 +32,11 @@ namespace Jobs.EasyApply.LinkedIn.Services
                     return true; // Return true to indicate we "handled" this job by skipping it
                 }
 
-                // Select the job card element and navigate to the job details page
-                var jobCard = _htmlScraper.FindJobCard(job.JobId);
-                if (jobCard != null)
-                {
-                    Log.Information("Found job card for {Title}, clicking to navigate to job details", job.Title);
-                    jobCard.Click();
-                    Thread.Sleep(3000); // Wait for job details page to load
-                }
-                else
-                {
-                    Log.Warning("No job card found for job: " + job.Title + " at " + job.Company);
-                    return false;
-                }
+                // Navigate to the job details page using the job ID
+                var jobUrl = $"https://www.linkedin.com/jobs/view/{job.JobId}";
+                Log.Information("Navigating to job details for {Title}: {Url}", job.Title, jobUrl);
+                _driver.Navigate().GoToUrl(jobUrl);
+                Thread.Sleep(2000); // Wait for job details page to load
 
                 // Now look for the Easy Apply button on the job details page
                 var easyApplyButton = _htmlScraper.FindEasyApplyButton(job.JobId);

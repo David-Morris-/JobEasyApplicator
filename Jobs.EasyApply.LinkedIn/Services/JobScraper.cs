@@ -336,21 +336,18 @@ namespace Jobs.EasyApply.LinkedIn.Services
             }
 
             var jobs = new List<JobListing>();
-            var processedCardCount = 0;
-            var maxIterations = 50; // Maximum number of scroll attempts to prevent infinite loops
-            var iterationCount = 0;
+            var pageNumber = 1;
+            var maxPages = 40; // Maximum number of pages to prevent infinite loops
 
-            // Continue loading more jobs until no new jobs are found, max iterations reached, or enough new jobs collected
-            while (iterationCount < maxIterations)
+            // Continue paginating through job search results
+            while (pageNumber <= maxPages)
             {
-                iterationCount++;
                 var jobCards = _driver.FindElements(By.CssSelector("div[data-job-id]"));
 
-                Log.Information("Found {Count} job cards on iteration {Iteration}", jobCards.Count, iterationCount);
+                Log.Information("Found {Count} job cards on page {Page}", jobCards.Count, pageNumber);
 
-                // Process new jobs that haven't been processed yet
-                var newJobsFoundInIteration = false;
-                foreach (var card in jobCards.Skip(processedCardCount))
+                // Process all jobs on this page
+                foreach (var card in jobCards)
                 {
                     try
                     {
@@ -381,7 +378,6 @@ namespace Jobs.EasyApply.LinkedIn.Services
                         {
                             Log.Information("New Easy Apply job found: {Title} at {Company}", title, company);
                             jobs.Add(new JobListing { Title = title, Company = company, JobId = jobId, Url = url, Provider = JobProvider.LinkedIn, PreviouslyApplied = previouslyApplied });
-                            newJobsFoundInIteration = true;
                         }
 
                     }
@@ -395,50 +391,36 @@ namespace Jobs.EasyApply.LinkedIn.Services
                     }
                 }
 
-                // Update the count of processed cards
-                processedCardCount = jobCards.Count;
-
-                // If no new jobs were found in this iteration, we've likely reached the end
-                if (!newJobsFoundInIteration)
+                // Check for next page button
+                var nextButton = _driver.FindElements(By.CssSelector("button.jobs-search-pagination__button--next")).FirstOrDefault();
+                if (nextButton == null || !nextButton.Enabled || !nextButton.Displayed)
                 {
-                    Log.Information("No new jobs found in iteration {Iteration}, stopping search", iterationCount);
+                    Log.Information("No next page button available or disabled, stopping pagination");
                     break;
                 }
 
-                // Scroll down to load more jobs (LinkedIn uses infinite scroll)
+                // Click next page button
+                Log.Information("Clicking next page button");
+                nextButton.Click();
+                pageNumber++;
+
+                // Wait for new page to load
                 try
                 {
-                    var lastJobCard = jobCards.LastOrDefault();
-                    if (lastJobCard != null)
-                    {
-                        // Scroll to the last job card to trigger loading of more jobs
-                        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView(true);", lastJobCard);
-                        Thread.Sleep(2000); // Wait for potential new jobs to load
-
-                        // Check if more jobs have loaded
-                        var currentJobCount = _driver.FindElements(By.CssSelector("div[data-job-id]")).Count;
-                        if (currentJobCount <= processedCardCount)
-                        {
-                            Log.Information("No additional jobs loaded after scroll, stopping search");
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
+                    wait.Until(d => d.FindElements(By.CssSelector("div[data-job-id]")).Count > 0);
+                    Thread.Sleep(3000); // Additional wait for page to fully load
                 }
-                catch (Exception ex)
+                catch (WebDriverTimeoutException)
                 {
-                    Log.Warning("Error during scroll operation: {Message}", ex.Message);
+                    Log.Warning("Next page did not load within timeout on page {Page}", pageNumber);
                     break;
                 }
 
-                // Add a small delay between iterations to be respectful to LinkedIn's servers
+                // Add a small delay between pages to be respectful to LinkedIn's servers
                 Thread.Sleep(1000);
             }
 
-            Log.Information("Job search completed. Found {jobs.Count} jobs after {Iterations} iterations", jobs.Count, iterationCount);
+            Log.Information("Job search completed. Found {JobCount} jobs after {PageCount} pages", jobs.Count, pageNumber - 1);
             return jobs;
         }
 
