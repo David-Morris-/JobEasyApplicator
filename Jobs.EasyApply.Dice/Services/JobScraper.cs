@@ -343,7 +343,9 @@ namespace Jobs.EasyApply.Dice.Services
                 try
                 {
                     var nextButton = _driver.FindElement(By.CssSelector("nav[role='navigation'][aria-label='Pagination'] span[aria-label='Next'][data-react-aria-pressable='true']"));
-                    if (nextButton.Displayed && nextButton.Enabled)
+                    if (nextButton.Displayed && nextButton.Enabled &&
+                        !string.Equals(nextButton.GetAttribute("aria-disabled"), "true", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(nextButton.GetAttribute("data-disabled"), "true", StringComparison.OrdinalIgnoreCase))
                     {
                         // Scroll to the Next button to ensure it's visible
                         ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView({block: 'center'});", nextButton);
