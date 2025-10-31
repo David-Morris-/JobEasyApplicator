@@ -86,21 +86,20 @@ namespace Jobs.EasyApply.Indeed.Services
             var searchUrl = $"https://www.indeed.com/jobs?q={Uri.EscapeDataString(_jobTitle)}&l={Uri.EscapeDataString(_location)}&sc=0kf%3Aattr%28DSQF7%29%3B&fromage=14&vjk=somejobid";
             _driver.Navigate().GoToUrl(searchUrl);
 
+            // Check for human verification checkbox
+            _htmlScraper.CheckForHumanVerification();
+
             // Wait for jobs to load with multiple fallback selectors
             var jobCardFound = false;
             var usedSelector = "";
 
             var selectorsToTry = new[]
             {
-                "div[data-cy='card-job']",
-                "div[data-testid='card-job']",
-                "div[class*='job-card']",
-                "div[class*='job-result']",
-                "div[class*='search-result']",
-                "article[data-cy='card-job']",
-                "article[data-testid='card-job']",
-                "[data-cy*='job']",
-                "[data-testid*='job']",
+                ".cardOutline.tapItem",
+                "div.cardOutline.tapItem",
+                "li[class*='css-1ac2h1w'][class*='eu4oa1w0']",
+                "div.result.job_[data-jk]",
+                "div[class*='result'][class*='job']",
                 ".job-card",
                 ".job-result"
             };
@@ -188,37 +187,42 @@ namespace Jobs.EasyApply.Indeed.Services
                         // Try multiple selectors for job title - Indeed.com specific
                         var titleElement = FindElementInCard(card, new[]
                         {
+                            "span[id*='jobTitle']",
                             "a[data-jk] span[title]",
-                            "h2 a",
+                            ".jcs-JobTitle span[title]",
+                            "h2 .jcs-JobTitle",
                             ".jobtitle",
-                            ".jobTitle",
-                            "a[data-jk]"
+                            ".jobTitle"
                         });
 
                         // For Indeed.com, company name
                         var companyElement = FindElementInCard(card, new[]
                         {
+                            "[data-testid='company-name']",
                             "[data-testid*='company']",
-                            "[data-cy*='company']",
-                            ".company",
-                            "span[class*='company']",
-                            ".companyName"
+                            ".companyName",
+                            ".company_location [data-testid='text-location']",
+                            "span[class*='company']"
                         });
 
                         // Try multiple selectors for job link
                         var linkElement = FindElementInCard(card, new[]
                         {
                             "a[data-jk]",
-                            "h2 a",
-                            ".jobtitle a",
-                            "a[href*='/viewjob']"
+                            ".jcs-JobTitle",
+                            "h2 .jcs-JobTitle"
                         });
 
                         var title = titleElement?.Text?.Trim() ?? string.Empty;
                         var company = companyElement?.Text?.Trim() ?? string.Empty;
+
+                        // Get job ID from data-jk attribute (try card first, then link)
                         var jobId = card.GetAttribute("data-jk") ??
-                                   card.GetAttribute("id") ??
+                                   linkElement?.GetAttribute("data-jk") ??
+                                   linkElement?.GetAttribute("id")?.Replace("job_", "") ??
+                                   card.GetAttribute("id")?.Split('_').LastOrDefault() ??
                                    Guid.NewGuid().ToString();
+
                         var url = linkElement?.GetAttribute("href") ?? string.Empty;
 
                         // Skip if we don't have minimum required information
@@ -289,6 +293,9 @@ namespace Jobs.EasyApply.Indeed.Services
                         // Wait for jobs to load on new page
                         var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
                         wait.Until(d => d.FindElements(By.CssSelector(usedSelector)).Count > 0);
+
+                        // Check for human verification checkbox after page load
+                        _htmlScraper.CheckForHumanVerification();
                     }
                     else
                     {

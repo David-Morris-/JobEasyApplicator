@@ -52,6 +52,9 @@ namespace Jobs.EasyApply.Indeed.Services
                 _driver.Navigate().GoToUrl(job.Url);
                 Thread.Sleep(3000); // Wait for job details page to load
 
+                // Check for human verification checkbox
+                _htmlScraper.CheckForHumanVerification();
+
                 // Check session again after navigation
                 if (!IsSessionValid())
                 {

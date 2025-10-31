@@ -1690,6 +1690,9 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                 // Try to fill education questions with Bachelor's Degree
                 if (FillEducationQuestion("Bachelor's Degree")) return true;
 
+                // Try to fill experience years questions
+                if (FillExperienceYearsQuestions()) return true;
+
                 // Add other common questions here in the future
 
                 return false;
@@ -1721,6 +1724,55 @@ namespace Jobs.EasyApply.LinkedIn.Utilities
                             yesButton.Click();
                             Thread.Sleep(500); // Allow time for selection
                             return true;
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try to fill text input questions about years of experience
+        /// </summary>
+        private bool FillExperienceYearsQuestions()
+        {
+            try
+            {
+                // Find labels containing "years" and "experience"
+                var labels = _driver.FindElements(By.XPath("//label[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'years') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'experience')]"));
+
+                foreach (var label in labels.Where(l => l.Displayed))
+                {
+                    try
+                    {
+                        // Find the associated input field for this label
+                        string inputId = label.GetAttribute("for");
+                        if (string.IsNullOrEmpty(inputId))
+                        {
+                            // Try to find the next input in the DOM
+                            var input = label.FindElement(By.XPath("following-sibling::input[1]|following-sibling::*//input[1]"));
+                            inputId = input.GetAttribute("id");
+                        }
+
+                        if (!string.IsNullOrEmpty(inputId))
+                        {
+                            var inputElement = _driver.FindElement(By.Id(inputId));
+                            if (inputElement.Displayed && IsFieldActuallyEmpty(inputElement))
+                            {
+                                // Fill with a default of 5 years
+                                inputElement.SendKeys("5");
+                                Thread.Sleep(500); // Allow time for input
+                                return true;
+                            }
                         }
                     }
                     catch (NoSuchElementException)

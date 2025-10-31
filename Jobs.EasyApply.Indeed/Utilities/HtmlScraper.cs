@@ -100,6 +100,7 @@ namespace Jobs.EasyApply.Indeed.Utilities
                 // Look for Easy Apply badges or indicators on job cards
                 var easyApplySelectors = new[]
                 {
+                    "[data-testid='indeedApply']",
                     "span[data-cy='easy-apply-badge']",
                     "span[data-testid='easy-apply-badge']",
                     "div[class*='easy-apply']",
@@ -612,6 +613,103 @@ namespace Jobs.EasyApply.Indeed.Utilities
             {
                 Log.Debug(ex, "Error checking for Application Submitted text");
                 return false;
+            }
+        }
+
+        // Check for and handle human verification checkbox (only when "Additional Verification Required" is present)
+        public void CheckForHumanVerification()
+        {
+            try
+            {
+                // First check if "Additional Verification Required" heading is present
+                var verificationHeadingSelectors = new[]
+                {
+                    "h1[id='heading']",
+                    "h1[id='heading']:contains('Additional Verification Required')",
+                    "#heading"
+                };
+
+                bool requiresVerification = false;
+                foreach (var selector in verificationHeadingSelectors)
+                {
+                    try
+                    {
+                        var headingElement = _driver.FindElement(By.CssSelector(selector));
+                        if (headingElement != null && headingElement.Displayed)
+                        {
+                            string headingText = headingElement.Text?.Trim() ?? "";
+                            if (headingText.Contains("Additional Verification Required", StringComparison.OrdinalIgnoreCase))
+                            {
+                                requiresVerification = true;
+                                Log.Information("Found 'Additional Verification Required' heading - waiting 5 seconds before continuing");
+                                Thread.Sleep(5000); // Wait 5 seconds when verification required
+                                Log.Information("Resume processing after verification wait");
+                                break;
+                            }
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                // Only proceed with verification if the heading indicates it's required
+                if (!requiresVerification)
+                {
+                    Log.Debug("No 'Additional Verification Required' heading found - skipping verification checkbox check");
+                    return;
+                }
+
+                // Look for the specific verification checkbox structure
+                var verificationSelectors = new[]
+                {
+                    "div[id='TktRY1'] input[type='checkbox']",
+                    "input[type='checkbox']",
+                    ".cb-c input[type='checkbox']",
+                    "label.cb-lb input[type='checkbox']",
+                    "[role='alert'] input[type='checkbox']"
+                };
+
+                foreach (var selector in verificationSelectors)
+                {
+                    try
+                    {
+                        var checkbox = _driver.FindElement(By.CssSelector(selector));
+                        if (checkbox != null && checkbox.Displayed && checkbox.Enabled)
+                        {
+                            Log.Information("Found human verification checkbox with selector: {Selector}", selector);
+
+                            // Check if it's already checked
+                            if (!checkbox.Selected)
+                            {
+                                Log.Information("Checking human verification checkbox");
+                                ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", checkbox);
+
+                                // Wait 3 seconds after checking the checkbox for processing
+                                Thread.Sleep(3000);
+
+                                Log.Information("Successfully checked human verification checkbox");
+                                return;
+                            }
+                            else
+                            {
+                                Log.Information("Human verification checkbox is already checked");
+                                return;
+                            }
+                        }
+                    }
+                    catch (NoSuchElementException)
+                    {
+                        continue;
+                    }
+                }
+
+                Log.Warning("Human verification required but no checkbox found on this page");
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Error checking for human verification checkbox");
             }
         }
     }
